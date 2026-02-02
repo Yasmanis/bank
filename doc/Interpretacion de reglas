@@ -1,0 +1,10 @@
+1. Interpretación de Reglas
+Parlet (38x70-10): Apuesta combinada. Gana si sale el fijo y uno de los corridos.
+Línea/Rango (Los 70-10 o 70-79-10): Es un atajo para apostar al 70, 71, 72, 73, 74, 75, 76, 77, 78 y 79. Si el fijo es 74, el usuario gana.
+Terminales (Ter 7-10 o 07-97-10): Atajo para los números que terminan en 7 (07, 17, 27... 97). Son 10 números en total.
+Tripleta (50-10-10-10): Una apuesta con 3 niveles de premio.
+Si sale el 50 en Fijo, gana con el primer 10.
+Si sale el 50 en el 1er Corrido, gana con el segundo 10.
+Si sale el 50 en el 2do Corrido, gana con el tercer 10.
+Fijo con Corrido (50-20-20): Similar a la tripleta pero solo con dos premios (Fijo y un solo Corrido).
+Parejas (Parejas-10): Atajo para 00, 11, 22, 33, 44, 55, 66, 77, 88, 99.
