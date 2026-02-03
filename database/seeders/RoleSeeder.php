@@ -27,7 +27,6 @@ class RoleSeeder extends Seeder
 
         $admin = Role::create(['name' => 'admin']);
         $admin->givePermissionTo([
-            'list.process',
             'list.validate',
             'list.preview'
         ]);

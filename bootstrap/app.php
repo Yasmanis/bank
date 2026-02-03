@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,12 +20,63 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Capturamos el error de falta de permisos de Spatie
-        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, \Illuminate\Http\Request $request) {
-            return response()->json([
-                'status'  => 'error',
-                'code'    => 403,
-                'message' => 'No tienes los permisos necesarios para realizar esta acción.',
-            ], 403);
+
+        // 1. Error de Autenticación (Token inválido o falta de Token)
+        // Esto evita el error "Route [login] not defined"
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autenticado. El token es inválido o ha expirado.',
+                    'errors'  => null
+                ], 401);
+            }
         });
+
+        // 2. Error de Validación (Form Requests)
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Los datos proporcionados no son válidos.',
+                    'errors'  => $e->errors(),
+                ], 422);
+            }
+        });
+
+        // 3. Error de Spatie (Falta de permisos o roles)
+        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes los permisos necesarios para realizar esta acción.',
+                    'errors'  => null
+                ], 403);
+            }
+        });
+
+        // 4. Error 404 (Recurso o Ruta no encontrada)
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El recurso solicitado no existe.',
+                    'errors'  => null
+                ], 404);
+            }
+        });
+
+        // 5. Error genérico (Cualquier otro error inesperado)
+        // Opcional: Solo activarlo si quieres que errores 500 también tengan formato JSON
+
+        $exceptions->render(function (\Throwable $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ocurrió un error inesperado en el servidor.',
+                    'errors'  => config('app.debug') ? $e->getMessage() : null
+                ], 500);
+            }
+        });
+
     })->create();

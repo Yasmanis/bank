@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Repositories\BankList\BankListRepository;
+use Illuminate\Support\Facades\DB;
+
 class ListParserService
 {
     /**
@@ -277,4 +280,26 @@ class ListParserService
     {
         return ['type' => $type, 'number' => $num, 'amount' => $amt, 'isWinner' => true];
     }
+
+
+
+
+
+    public function processAndStoreChat($user, $text)
+    {
+        return DB::transaction(function () use ($user, $text) {
+            $cleanedText = $this->cleanWhatsAppChat($text);
+            $processedData = $this->calculateTotals($cleanedText);
+            $bankListRepository= new BankListRepository();
+
+            return $bankListRepository->store([
+                'user_id'      => $user->id,
+                'created_by'   => $user->id,
+                'text'         => $text,
+                'processed_text' => $processedData
+            ]);
+        });
+    }
+
+
 }
