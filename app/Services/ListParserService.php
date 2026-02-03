@@ -70,8 +70,9 @@ class ListParserService
             // --- PAREJAS ---
             if (preg_match(self::PAREJAS, $line, $matches) || preg_match(self::PAREJAS2, $line, $matches)) {
                 $amt = (int)$matches[1];
-                foreach (['00','11','22','33','44','55','66','77','88','99'] as $p) {
-                    $summary['fixed_details'][$p] += $amt;
+                for ($i = 0; $i <= 9; $i++) {
+                    $num = $i . $i; // Números pares: 00,11,22,...99
+                    $summary['fixed_details'][$num] += $amt;
                     $summary['fixed'] += $amt;
                     $summary['total'] += $amt;
                 }
@@ -80,7 +81,7 @@ class ListParserService
 
             // --- TERMINALES ---
             if (preg_match(self::TERMINALES, $line, $matches)) {
-                $lastDigit = substr($matches[1], -1);
+                $lastDigit = $matches[1];
                 $amt = (int)$matches[2];
                 for ($i = 0; $i <= 9; $i++) {
                     $num = $i . $lastDigit;
@@ -198,7 +199,7 @@ class ListParserService
 
             // --- 2. TERMINALES ---
             if (preg_match(self::TERMINALES, $line, $matches)) {
-                $targetDigit = substr($matches[1], -1);
+                $targetDigit = $matches[1];
                 $amt = (int)$matches[2];
                 if ($winF && str_ends_with($winF, $targetDigit)) {
                     $results[] = $this->formatRes('terminal', "Ter. $targetDigit", $amt);
