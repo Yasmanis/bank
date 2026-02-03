@@ -51,12 +51,10 @@ class ListController extends Controller
 
 
         $winningNumbers = [
-            'fijo'    => $fijoPadded,
-            'hundred' => ($c !== null && $fijoPadded) ? $c . $fijoPadded : null,
-            'runners' => array_filter([
-                $r1 ? str_pad($r1, 2, '0', STR_PAD_LEFT) : null,
-                $r2 ? str_pad($r2, 2, '0', STR_PAD_LEFT) : null,
-            ])
+            'fijo'     => $fijoPadded,
+            'hundred'  => ($c !== null && $fijoPadded) ? $c . $fijoPadded : null,
+            'runners1' => $r1 ? [str_pad($r1, 2, '0', STR_PAD_LEFT)] : [],
+            'runners2' => $r2 ? [str_pad($r2, 2, '0', STR_PAD_LEFT)] : [],
         ];
 
         // 3. Procesar resultados
@@ -74,6 +72,7 @@ class ListController extends Controller
             'centena' => 'nullable|string',
             'corrido1' => 'nullable|string',
             'corrido2' => 'nullable|string',
+            'completo' => 'nullable|string',
         ]);
 
         // 1. Limpiar el texto usando el servicio
