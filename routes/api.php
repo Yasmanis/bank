@@ -14,7 +14,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('list.process');
 
         Route::post('/preview', [\App\Http\Controllers\BankListController::class, 'preview'])
-            ->middleware('permission:list.process')
+            ->middleware('permission:list.preview')
             ->name('list.preview');
 
         Route::get('/preview/{id}', [\App\Http\Controllers\BankListController::class, 'previewById'])
