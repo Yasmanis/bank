@@ -20,6 +20,7 @@ return new class extends Migration
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->longText('text');
             $table->longText('processed_text')->nullable();
+            $table->enum('hourly',['am','pm']);
             $table->softDeletes();
             $table->timestamps();
         });

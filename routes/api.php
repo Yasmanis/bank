@@ -7,6 +7,8 @@ Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('list')->group(function () {
+        Route::get('/',[\App\Http\Controllers\BankListController::class, 'index']);
+        Route::get('/{id}',[\App\Http\Controllers\BankListController::class, 'show']);
         Route::post('/process', [\App\Http\Controllers\BankListController::class, 'process'])
             ->middleware('permission:list.process')
             ->name('list.process');

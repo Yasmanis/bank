@@ -7,6 +7,7 @@ use App\Models\BankList;
 class BankListRepository
 {
     protected \Illuminate\Database\Eloquent\Builder $model;
+
     public function __construct()
     {
         $this->model = BankList::query();
@@ -25,6 +26,15 @@ class BankListRepository
     public function update(array $data, $id): int
     {
         return $this->model->findOrFail($id)->update($data);
+    }
+
+    public function getPaginatedByUser(int|string|null $userId, mixed $perPage = 15)
+    {
+        $query = $this->model->with('user')->latest();
+        if (!auth()->user()->hasPermissionTo('list.view_all')) {
+            $query->where('user_id', $userId);
+        }
+        return $query->paginate($perPage);
     }
 
 }

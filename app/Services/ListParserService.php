@@ -62,7 +62,7 @@ class ListParserService
             // --- PAREJAS ---
             if (preg_match('/(?:las\s+)?parejas[- ](\d+)/', $line, $matches) || preg_match('/00-99[- ](\d+)/', $line, $matches)) {
                 $amt = (int)$matches[1];
-                foreach (['00','11','22','33','44','55','66','77','88','99'] as $p) {
+                foreach (['00', '11', '22', '33', '44', '55', '66', '77', '88', '99'] as $p) {
                     $summary['fixed_details'][$p] += $amt;
                     $summary['fixed'] += $amt;
                     $summary['total'] += $amt;
@@ -103,7 +103,8 @@ class ListParserService
                 $n1 = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
                 $n2 = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
                 $amt = (int)$matches[3];
-                $pair = [$n1, $n2]; sort($pair);
+                $pair = [$n1, $n2];
+                sort($pair);
                 $key = $pair[0] . 'x' . $pair[1];
                 $summary['parlet'] += $amt;
                 $summary['total'] += $amt;
@@ -181,7 +182,7 @@ class ListParserService
             // --- 1. PAREJAS ---
             if (preg_match('/(?:las\s+)?parejas[- ](\d+)/', $line, $matches) || preg_match('/00-99[- ](\d+)/', $line, $matches)) {
                 $amt = (int)$matches[1];
-                if ($winF && in_array($winF, ['00','11','22','33','44','55','66','77','88','99'])) {
+                if ($winF && in_array($winF, ['00', '11', '22', '33', '44', '55', '66', '77', '88', '99'])) {
                     $results[] = $this->formatRes('fixed', "Pareja ($winF)", $amt);
                     $summary['fixed'] += $amt;
                 }
@@ -282,21 +283,19 @@ class ListParserService
     }
 
 
-
-
-
-    public function processAndStoreChat($user, $text)
+    public function processAndStoreChat($user, $data)
     {
-        return DB::transaction(function () use ($user, $text) {
-            $cleanedText = $this->cleanWhatsAppChat($text);
+        return DB::transaction(function () use ($user, $data) {
+            $cleanedText = $this->cleanWhatsAppChat($data['text']);
             $processedData = $this->calculateTotals($cleanedText);
-            $bankListRepository= new BankListRepository();
+            $bankListRepository = new BankListRepository();
 
             return $bankListRepository->store([
-                'user_id'      => $user->id,
-                'created_by'   => $user->id,
-                'text'         => $text,
-                'processed_text' => $processedData
+                'user_id' => $user->id,
+                'created_by' => $user->id,
+                'text' => $data['text'],
+                'processed_text' => $processedData,
+                'hourly' => $data['hourly']
             ]);
         });
     }

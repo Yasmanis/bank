@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Dto\BankList\BankListFullResponseDto;
+use App\Dto\BankList\BankListPartialResponseDto;
 use App\Http\Requests\ProcessListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
@@ -17,12 +19,51 @@ class BankListController extends Controller
         $this->listService = $listService;
     }
 
+    public function index(Request $request)
+    {
+        try {
+            $bankListRepository = new BankListRepository();
+
+            $paginator = $bankListRepository->getPaginatedByUser(
+                auth()->id(),
+                $request->get('per_page', 15)
+            );
+
+            $paginator->getCollection()->transform(function ($model) {
+                return BankListPartialResponseDto::fromModel($model);
+            });
+
+            return $this->success($paginator, 'Listas obtenidas con éxito');
+
+        } catch (\Throwable $th) {
+            return $this->error('Error al obtener listas', 500, $th->getMessage());
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $bankListRepository = new BankListRepository();
+            $model = $bankListRepository->getModelById($id);
+            if (!auth()->user()->can('list.view_all') && $model->user_id !== auth()->id()) {
+                return $this->error('No tienes permiso para ver esta lista', 403);
+            }
+            $model->load('user');
+            return $this->success(BankListFullResponseDto::fromModel($model));
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('La lista no existe', 404);
+        } catch (\Throwable $th) {
+            return $this->error('Error al obtener el detalle', 422, $th->getMessage());
+        }
+    }
+
     public function process(ProcessListRequest $request)
     {
         try {
             $model = $this->listService->processAndStoreChat(
                 auth()->user(),
-                $request->text
+                $request->all()
             );
             return $this->success([
                 'id' => $model->id

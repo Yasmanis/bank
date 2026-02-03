@@ -21,6 +21,7 @@ class ProcessListRequest extends FormRequest
     {
         return [
             'text' => 'required|string|min:1',
+            'hourly' => 'required|in:am,pm',
         ];
     }
 
@@ -33,6 +34,8 @@ class ProcessListRequest extends FormRequest
             'text.required' => 'El campo de texto es obligatorio.',
             'text.string'   => 'El formato del texto no es válido.',
             'text.min'      => 'El texto es demasiado corto para ser procesado.',
+            'hourly.required' => 'Debes seleccionar un horario.',
+            'hourly.in'       => 'El horario debe ser am o pm.',
         ];
     }
 }
