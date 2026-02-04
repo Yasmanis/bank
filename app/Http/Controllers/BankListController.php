@@ -130,6 +130,16 @@ class BankListController extends Controller
         $request->validate([
             'text' => 'required|string'
         ]);
+        $userAgent = $request->userAgent();
+        $source = str_contains($userAgent, 'Postman') ? 'Postman' : 'Web Frontend';
+        activity()
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'source' => $source,
+                'agent' => $userAgent,
+                'route' => $request->route()->getName()
+            ])
+            ->log($request->text);
         try {
             $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($request->text);
             $data = $this->listService->calculateTotals($cleanedWhatsAppText);
