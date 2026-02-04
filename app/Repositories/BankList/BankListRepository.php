@@ -28,13 +28,27 @@ class BankListRepository
         return $this->model->findOrFail($id)->update($data);
     }
 
-    public function getPaginatedByUser(int|string|null $userId, mixed $perPage = 15)
+    public function getPaginated(array $filters, int|string|null $userId, $perPage = 15): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = $this->model->with('user')->latest();
-        if (!auth()->user()->hasPermissionTo('list.view_all')) {
+        $query = BankList::with('user');
+        if (!auth()->user()->can('list.view_all')) {
             $query->where('user_id', $userId);
         }
-        return $query->paginate($perPage);
+
+        $query->when($filters['hourly'] ?? null, function ($q, $hourly) {
+            $q->where('hourly', $hourly);
+        })
+            ->when($filters['status'] ?? null, function ($q, $status) {
+                $q->where('status', $status);
+            })
+            ->when($filters['from'] ?? null, function ($q, $from) {
+                $q->whereDate('created_at', '>=', $from);
+            })
+            ->when($filters['to'] ?? null, function ($q, $to) {
+                $q->whereDate('created_at', '<=', $to);
+            });
+
+        return $query->latest()->paginate($perPage);
     }
 
 }

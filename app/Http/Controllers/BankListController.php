@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Dto\BankList\BankListFullResponseDto;
 use App\Dto\BankList\BankListPartialResponseDto;
+use App\Http\Requests\BankListIndexRequest;
 use App\Http\Requests\ProcessListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
@@ -19,21 +20,23 @@ class BankListController extends Controller
         $this->listService = $listService;
     }
 
-    public function index(Request $request)
+    public function index(BankListIndexRequest $request)
     {
         try {
             $bankListRepository = new BankListRepository();
+            $filters = $request->validated();
+            $perPage = $request->get('per_page', 15);
 
-            $paginator = $bankListRepository->getPaginatedByUser(
+            $paginator = $bankListRepository->getPaginated(
+                $filters,
                 auth()->id(),
-                $request->get('per_page', 15)
+                $perPage
             );
+            $paginator->appends($request->query());
             $paginator->through(fn ($model) => BankListPartialResponseDto::fromModel($model));
-
             return $this->successPaginated($paginator);
-
         } catch (\Throwable $th) {
-            return $this->error('Error al obtener listas', 500, $th->getMessage());
+            return $this->error('Error al obtener listas', 422, $th->getMessage());
         }
     }
 
