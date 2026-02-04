@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/user-permissions', [\App\Http\Controllers\UserController::class, 'userPermissions']);
+    Route::get('/log-activity', [\App\Http\Controllers\ActivityLogController::class, 'index']);
 
 });
 
