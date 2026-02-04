@@ -163,14 +163,18 @@ class BankListController extends Controller
     }
 
 
-    public function validate($id)
+    public function validate(Request $request, $id)
     {
+        $request->validate([
+            'status' => 'required|in:approved,denied'
+        ]);
         try {
             $bankListRepository = new BankListRepository();
+            $approvedBy = $request->status == BankList::STATUS_APPROVED ? auth()->id() : null;
             $data = [
-                'status' => BankList::STATUS_APPROVED,
+                'status' => $request->status,
                 'updated_by' => auth()->id(),
-                'approved_by' => auth()->id()
+                'approved_by' => $approvedBy
             ];
             $bankListRepository->update($data,$id);
             return $this->success(['id' => $id],'Validación de lista ejecutada correctamente');
@@ -179,4 +183,20 @@ class BankListController extends Controller
         }
 
     }
+
+    public function destroy($id)
+    {
+        if (!auth()->user()->can('list.delete')) {
+            return $this->error('No tienes permiso para eliminar esta lista', 403);
+        }
+
+        try {
+            $bankListRepository = new BankListRepository();
+            $bankListRepository->delete($id);
+            return $this->success(['id' => $id],'Validación de lista ejecutada correctamente');
+        } catch (\Throwable $th) {
+            return $this->error('No es posible la validación', 422, $th->getMessage());
+        }
+    }
+
 }

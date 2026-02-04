@@ -51,4 +51,9 @@ class BankListRepository
         return $query->latest()->paginate($perPage);
     }
 
+    public function delete($id): int
+    {
+        return $this->model->findOrFail($id)->delete();
+    }
+
 }

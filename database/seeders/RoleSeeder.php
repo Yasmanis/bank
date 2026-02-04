@@ -21,6 +21,7 @@ class RoleSeeder extends Seeder
         Permission::create(['name' => 'list.preview']);
         Permission::create(['name' => 'list.validate']);
         Permission::create(['name' => 'list.view_all']);
+        Permission::create(['name' => 'list.delete']);
 
         // 2. Crear Roles y asignar permisos
         $superadmin = Role::create(['name' => 'super-admin']);
@@ -30,13 +31,15 @@ class RoleSeeder extends Seeder
         $admin->givePermissionTo([
             'list.validate',
             'list.preview',
-            'list.view_all'
+            'list.view_all',
+            'list.delete'
         ]);
 
         $user = Role::create(['name' => 'user']);
         $user->givePermissionTo([
             'list.process',
-            'list.preview'
+            'list.preview',
+            'list.delete'
         ]);
     }
 }
