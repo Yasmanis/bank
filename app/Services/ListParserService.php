@@ -20,6 +20,7 @@ class ListParserService
      */
     public function cleanWhatsAppChat(string $text): string
     {
+        $text = str_replace("\\n", "\n", $text);
         // Eliminar metadatos: "[1/2/26, 22:12:47] Nombre de Usuario: "
         $text = preg_replace('/^\[\d+\/\d+\/\d+, \d+:\d+:\d+\] [^:]+: /m', '', $text);
 
@@ -40,7 +41,6 @@ class ListParserService
      */
     public function calculateTotals(string $cleanText): array
     {
-        $cleanText = str_replace("\\n", "\n", $cleanText);
         $lines = explode("\n", $cleanText);
         $summary = [
             'fixed' => 0,
