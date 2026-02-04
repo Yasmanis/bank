@@ -28,12 +28,9 @@ class BankListController extends Controller
                 auth()->id(),
                 $request->get('per_page', 15)
             );
+            $paginator->through(fn ($model) => BankListPartialResponseDto::fromModel($model));
 
-            $paginator->getCollection()->transform(function ($model) {
-                return BankListPartialResponseDto::fromModel($model);
-            });
-
-            return $this->success($paginator, 'Listas obtenidas con éxito');
+            return $this->successPaginated($paginator);
 
         } catch (\Throwable $th) {
             return $this->error('Error al obtener listas', 500, $th->getMessage());
