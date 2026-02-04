@@ -40,6 +40,7 @@ class ListParserService
      */
     public function calculateTotals(string $cleanText): array
     {
+        $cleanText = str_replace("\\n", "\n", $cleanText);
         $lines = explode("\n", $cleanText);
         $summary = [
             'fixed' => 0,
