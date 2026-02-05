@@ -129,6 +129,11 @@ class ListParserService
             // Detalles de corridas (solo si el monto es > 0)
             'runner1_details' => $this->sumByNumber($bets->where('runner1', '>', 0), 'runner1'),
             'runner2_details' => $this->sumByNumber($bets->where('runner2', '>', 0), 'runner2'),
+
+            'not_processed' => $bets->where('type', 'error')
+                ->pluck('originalLine')
+                ->values()
+                ->toArray(),
         ];
     }
 
