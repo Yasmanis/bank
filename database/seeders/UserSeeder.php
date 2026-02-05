@@ -64,9 +64,6 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
-            // CORRECCIÓN AQUÍ:
-            // 1. Usamos withTrashed() por si el usuario fue eliminado suavemente (SoftDelete)
-            // 2. Corregimos el doble Hash::make
             $user = User::updateOrCreate(
                 ['email' => $userData['email']],
                 [
