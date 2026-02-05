@@ -3,42 +3,81 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $superadmin = User::create([
-            'name' => 'Super Admin',
-            'email' => 'superadmin@test.com',
-            'password' => Hash::make('super-admin'),
-        ]);
-        $superadmin->assignRole('super-admin');
+        $defaultPassword = 'password123Segurojaja';
 
-        $admin = User::create([
-            'name' => 'Admin Prueba',
-            'email' => 'admin@test.com',
-            'password' => Hash::make('admin'),
-        ]);
-        $admin->assignRole('admin');
+        // 2. Lista de usuarios a crear
+        $users = [
+            [
+                'name'  => 'Super Admin',
+                'email' => 'superadmin@test.com',
+                'role'  => 'super-admin',
+                'password' => 'super-admin' // Contraseña personalizada
+            ],
+            [
+                'name'  => 'Admin Prueba',
+                'email' => 'admin@test.com',
+                'role'  => 'admin',
+            ],
+            // --- AQUÍ AÑADES A TU AMIGOS FÁCILMENTE ---
+            [
+                'name' => 'Usuario',
+                'email' => 'user@test.com',
+                'password' => 'user',
+                'role' => 'user'
+            ],
+            [
+                'name' => 'Usuario2',
+                'email' => 'user2@test.com',
+                'password' => 'user2',
+                'role' => 'user'
+            ],
+            [
+                'name'  => 'Carlos Test',
+                'email' => 'carlos@test.com',
+                'role'  => 'user',
+            ],
+            [
+                'name'  => 'Yurislier Test',
+                'email' => 'yurislier@test.com',
+                'role'  => 'user',
+            ],
+            [
+                'name'  => 'Jose Test',
+                'email' => 'jose@test.com',
+                'role'  => 'user',
+            ],
+            [
+                'name'  => 'Luis Test',
+                'email' => 'luis@test.com',
+                'role'  => 'user',
+            ],
+            [
+                'name'  => 'Yasmanis Test',
+                'email' => 'yasmanis@test.com',
+                'role'  => 'user',
+            ]
+        ];
 
-        $user = User::create([
-            'name' => 'Usuario',
-            'email' => 'user@test.com',
-            'password' => Hash::make('user'),
-        ]);
-        $user->assignRole('user');
-        $user = User::create([
-            'name' => 'Usuario2',
-            'email' => 'user2@test.com',
-            'password' => Hash::make('user2'),
-        ]);
-        $user->assignRole('user');
+        // 3. Procesamos el array
+        foreach ($users as $userData) {
+            $user = User::updateOrCreate(
+                ['email' => $userData['email']],
+                [
+                    'name'     => $userData['name'],
+                    'password' => Hash::make($userData['password'] ?? Hash::make($defaultPassword)),
+                ]
+            );
+
+            $user->syncRoles($userData['role']);
+        }
+
+        $this->command->info('Usuarios creados correctamente.');
     }
 }
