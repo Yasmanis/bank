@@ -10,19 +10,15 @@ use Illuminate\Support\Facades\DB;
 class ListParserService
 {
     // Parejas: Soporta "las parejas 100", "00-99 con 50", etc.
-    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
+    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/i';
 
-    // Terminales: Soporta "ter 7-10", "terminal 8 a 50", "t-5 20", "07-97-10"
-    private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(\d)|t\s*[-]?\s*(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
+    private const TERMINALES = '/^(?:(?:del\s+)?\d?(?<d1>\d)\s+al\s+\d?\k<d1>|ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d2>\d)|t\s*[-]?\s*(?<d3>\d)|\d?(?<d4>\d)-\d?\k<d4>)\D+(?<amt>\d+)$/i';
 
-    // Líneas: Soporta "los 30-50", "del 20 al 29-10" Y el nuevo "50 pesos a todos los 70"
-    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(\d)0(?:s)?|(\d)0\s*al\s*\2[9]|(\d)0-\3[9])\D+(\d+)|(\d+)\D+todos\s+(?:los\s+)?(\d)0)$/i';
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)\D+(?<amt1>\d+)|(?<amt2>\d+)\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/i';
 
-    // Parlet: Soporta "38x70-100", "p-38*70 50"
-    private const PARLET = '/^(?:p[- ])?(\d{1,2})[x\*](\d{1,2})\D+(\d+)$/i';
+    private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*](?<n2>\d{1,2})\D+(?<amt>\d+)$/i';
 
-    // Normal: Soporta "77-100", "t05-10-10", "123-500", "1-500"
-    private const NORMAL = '/^(?:t|p)?\s?(\d{1,3})\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
+    private const NORMAL = '/^(?:t|p)?\s?(?<num>\d{1,3})\D+(?<amt>\d+)(?:\D+(?<c1>\d+))?(?:\D+(?<c2>\d+))?$/i';
 
     protected BankListRepository $repository;
 
@@ -115,52 +111,36 @@ class ListParserService
      */
     public function calculateTotals(Collection $bets): array
     {
-        // 1. Inicializamos la estructura base de los detalles fijos (00-99)
-        $fixedDetails = collect(range(0, 99))
-            ->mapWithKeys(fn($i) => [str_pad($i, 2, '0', STR_PAD_LEFT) => 0]);
+        return [
+            // Totales globales (Simples y directos)
+            'fixed'   => (int) $bets->where('type', 'fixed')->sum('amount'),
+            'hundred' => (int) $bets->where('type', 'hundred')->sum('amount'),
+            'parlet'  => (int) $bets->where('type', 'parlet')->sum('amount'),
+            'runner1' => (int) $bets->sum('runner1'),
+            'runner2' => (int) $bets->sum('runner2'),
+            'total'   => (int) $bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
 
-        // 2. Procesamos los totales por categorías usando filtros de la colección
-        $summary = [
-            'fixed'           => $bets->where('type', 'fixed')->sum('amount'),
-            'hundred'         => $bets->where('type', 'hundred')->sum('amount'),
-            'parlet'          => $bets->where('type', 'parlet')->sum('amount'),
-            'runner1'         => $bets->sum('runner1'),
-            'runner2'         => $bets->sum('runner2'),
-            'total'           => $bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
+            // Detalles (Agrupamos por número y sumamos)
+            // Usamos sortKeys() para que siempre salgan en orden (00, 01, 02...)
+            'fixed_details'   => $this->sumByNumber($bets->where('type', 'fixed'), 'amount'),
+            'hundred_details' => $this->sumByNumber($bets->where('type', 'hundred'), 'amount'),
+            'parlet_details'  => $this->sumByNumber($bets->where('type', 'parlet'), 'amount'),
 
-            // Agrupaciones detalladas
-            'fixed_details'   => $fixedDetails->merge(
-                $bets->where('type', 'fixed')
-                    ->groupBy('number')
-                    ->map->sum('amount')
-            )->filter()->toArray(),
-
-            'hundred_details' => $bets->where('type', 'hundred')
-                ->groupBy('number')
-                ->map->sum('amount')
-                ->sortKeys()
-                ->toArray(),
-
-            'parlet_details'  => $bets->where('type', 'parlet')
-                ->groupBy('number')
-                ->map->sum('amount')
-                ->sortKeys()
-                ->toArray(),
-
-            'runner1_details' => $bets->where('runner1', '>', 0)
-                ->groupBy('number')
-                ->map->sum('runner1')
-                ->sortKeys()
-                ->toArray(),
-
-            'runner2_details' => $bets->where('runner2', '>', 0)
-                ->groupBy('number')
-                ->map->sum('runner2')
-                ->sortKeys()
-                ->toArray(),
+            // Detalles de corridas (solo si el monto es > 0)
+            'runner1_details' => $this->sumByNumber($bets->where('runner1', '>', 0), 'runner1'),
+            'runner2_details' => $this->sumByNumber($bets->where('runner2', '>', 0), 'runner2'),
         ];
+    }
 
-        return $summary;
+    /**
+     * Método auxiliar para evitar repetir código de suma y asegurar el formato
+     */
+    private function sumByNumber(Collection $items, string $field): array
+    {
+        return $items->groupBy('number')
+            ->map(fn($group) => (int) $group->sum($field))
+            ->sortKeys()
+            ->toArray();
     }
 
 
@@ -200,21 +180,19 @@ class ListParserService
             if (empty($line) || !preg_match('/\d/', $line) || str_contains($line, 'attached:')) continue;
 
             // 2. TERMINALES
-            if (preg_match(self::TERMINALES, $line, $matches)) {
-                $values = array_values(array_filter(array_slice($matches, 1), fn($v) => $v !== ''));
-                $digit = $values[0];
-                $amt = (int) end($values);
+            if (preg_match(self::TERMINALES, $line, $m)) {
+                $digit = $m['d1'] ?: ($m['d2'] ?: ($m['d3'] ?: $m['d4']));
+                $amt = (int)$m['amt'];
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet('fixed', $i.$digit, $amt, originalLine: $line));
                 }
                 continue;
             }
-
-            // 1. PAREJAS (Ahora con soporte para 3 montos)
-            if (preg_match(self::PAREJAS, $line, $matches)) {
-                $amt = (int)$matches[1];
-                $r1  = (int)($matches[2] ?? 0);
-                $r2  = (int)($matches[3] ?? 0);
+            // 1. PAREJAS
+            if (preg_match(self::PAREJAS, $line, $m)) {
+                $amt = (int)$m['amt1'];
+                $r1  = (int)($m['amt2'] ?? 0);
+                $r2  = (int)($m['amt3'] ?? 0);
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet('fixed', $i.$i, $amt, $r1, $r2, $line));
                 }
@@ -222,19 +200,9 @@ class ListParserService
             }
 
             // 3. LÍNEAS (NUEVO)
-            if (preg_match(self::LINEAS, $line, $matches)) {
-                $values = array_values(array_filter($matches, fn($v) => $v !== ''));
-
-                // Si la coincidencia vino de "50 a todos los 70"
-                if (str_contains($line, 'todos')) {
-                    $amt = (int) $values[1];    // El primer número es el monto (50)
-                    $decade = $values[2];       // El segundo es la decena (7)
-                } else {
-                    // Si vino de "los 70 a 50"
-                    $decade = $values[1];       // El primer número es la decena (7)
-                    $amt = (int) end($values);  // El último es el monto (50)
-                }
-
+            if (preg_match(self::LINEAS, $line, $m)) {
+                $decade = $m['dec1'] ?: ($m['dec2'] ?: ($m['dec3'] ?: $m['dec4']));
+                $amt = (int)($m['amt1'] ?: $m['amt2']);
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet('fixed', $decade.$i, $amt, originalLine: $line));
                 }
@@ -242,19 +210,19 @@ class ListParserService
             }
 
             // 4. PARLET
-            if (preg_match(self::PARLET, $line, $matches)) {
-                $n1 = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-                $n2 = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            if (preg_match(self::PARLET, $line, $m)) {
+                $n1 = str_pad($m['n1'], 2, '0', STR_PAD_LEFT);
+                $n2 = str_pad($m['n2'], 2, '0', STR_PAD_LEFT);
                 $nums = [$n1, $n2]; sort($nums);
-                $bets->push(new DetectedBet('parlet', $nums[0].'x'.$nums[1], (int)$matches[3], originalLine: $line));
+                $bets->push(new DetectedBet('parlet', $nums[0].'x'.$nums[1], (int)$m['amt'], originalLine: $line));
                 continue;
             }
 
             // 5. NORMAL / TRIPLETAS (Soporta 1 a 3 dígitos y prefijos t/p)
-            if (preg_match(self::NORMAL, $line, $matches)) {
-                $num = str_pad($matches[1], (strlen($matches[1]) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
+            if (preg_match(self::NORMAL, $line, $m)) {
+                $num = str_pad($m['num'], (strlen($m['num']) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
                 $type = strlen($num) === 3 ? 'hundred' : 'fixed';
-                $bets->push(new DetectedBet($type, $num, (int)$matches[2], (int)($matches[3] ?? 0), (int)($matches[4] ?? 0), $line));
+                $bets->push(new DetectedBet($type, $num, (int)$m['amt'], (int)($m['c1'] ?? 0), (int)($m['c2'] ?? 0), $line));
                 continue;
             }
 
