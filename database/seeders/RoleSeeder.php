@@ -2,44 +2,60 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
-    public function run()
+    public function run(): void
     {
-        // 1. Crear Permisos
-        Permission::create(['name' => 'dashboard.index']);
-        //list
-        Permission::create(['name' => 'list.process']);
-        Permission::create(['name' => 'list.preview']);
-        Permission::create(['name' => 'list.validate']);
-        Permission::create(['name' => 'list.view_all']);
-        Permission::create(['name' => 'list.delete']);
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        $permissionsByModule = [
+            'dashboard' => [
+                'dashboard.index',
+            ],
+            'list' => [
+                'list.process',
+                'list.preview',
+                'list.validate',
+                'list.view_all',
+                'list.delete',
+            ],
+        ];
+        $allPermissions = [];
+        foreach ($permissionsByModule as $module => $perms) {
+            foreach ($perms as $permissionName) {
+                $allPermissions[] = Permission::firstOrCreate(['name' => $permissionName]);
+            }
+        }
 
-        // 2. Crear Roles y asignar permisos
-        $superadmin = Role::create(['name' => 'super-admin']);
-        $superadmin->givePermissionTo(Permission::all());
+        $roles = [
+            'super-admin' => [
+                'all' => true
+            ],
+            'admin' => [
+                'list.validate',
+                'list.preview',
+                'list.view_all',
+                'list.delete',
+            ],
+            'user' => [
+                'list.process',
+                'list.preview',
+                'list.delete',
+            ],
+        ];
 
-        $admin = Role::create(['name' => 'admin']);
-        $admin->givePermissionTo([
-            'list.validate',
-            'list.preview',
-            'list.view_all',
-            'list.delete'
-        ]);
+        foreach ($roles as $roleName => $assignedPerms) {
+            $role = Role::firstOrCreate(['name' => $roleName]);
 
-        $user = Role::create(['name' => 'user']);
-        $user->givePermissionTo([
-            'list.process',
-            'list.preview',
-            'list.delete'
-        ]);
+            if (isset($assignedPerms['all']) && $assignedPerms['all'] === true) {
+                $role->syncPermissions(Permission::all());
+            } else {
+                $role->syncPermissions($assignedPerms);
+            }
+        }
     }
 }

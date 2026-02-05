@@ -10,6 +10,7 @@ use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
 use App\Services\ListParserService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class BankListController extends Controller
 {
@@ -186,16 +187,17 @@ class BankListController extends Controller
 
     public function destroy($id)
     {
-        if (!auth()->user()->can('list.delete')) {
-            return $this->error('No tienes permiso para eliminar esta lista', 403);
-        }
-
         try {
             $bankListRepository = new BankListRepository();
+            $model = $bankListRepository->getModelById($id);
+            // LLAMADA A LA POLICY: ¿Puede este usuario BORRAR este modelo?
+            Gate::authorize('delete', $model);
             $bankListRepository->delete($id);
-            return $this->success(['id' => $id],'Validación de lista ejecutada correctamente');
+            return $this->success(['id' => $id], 'Lista eliminada correctamente');
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->error('No tienes permiso para eliminar esta lista', 403);
         } catch (\Throwable $th) {
-            return $this->error('No es posible la validación', 422, $th->getMessage());
+            return $this->error('Error al intentar eliminar', 422, $th->getMessage());
         }
     }
 
