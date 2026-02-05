@@ -272,6 +272,34 @@ class ListParserServiceTest extends TestCase
     }
 
     /** @test */
+    public function it_extracts_todos_los_format_correctly()
+    {
+        $formats = [
+            "50 pesos a todos los 70",
+            "100 a todos los 30",
+            "20 pesos todos los 00",
+            "10 todos 80"
+        ];
+
+        // 1. Probar "50 pesos a todos los 70"
+        $bets = $this->service->extractBets($formats[0]);
+        $this->assertCount(10, $bets);
+        $this->assertEquals('70', $bets->first()->number);
+        $this->assertEquals('79', $bets->last()->number);
+        $this->assertEquals(50, $bets->first()->amount);
+
+        // 2. Probar "100 a todos los 30"
+        $bets = $this->service->extractBets($formats[1]);
+        $this->assertEquals('30', $bets->first()->number);
+        $this->assertEquals(100, $bets->first()->amount);
+
+        // 3. Probar "10 todos 80" (formato ultra corto)
+        $bets = $this->service->extractBets($formats[3]);
+        $this->assertEquals('80', $bets->first()->number);
+        $this->assertEquals(10, $bets->first()->amount);
+    }
+
+    /** @test */
     public function it_ignores_lines_without_numbers()
     {
         $text = "esta es una linea de texto sin apuestas";

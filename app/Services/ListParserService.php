@@ -9,19 +9,19 @@ use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
-    // Soporta: parejas, parejaa, las pareja, 00-99, del 00 al 99 (y hasta 3 montos)
+    // Parejas: Soporta "las parejas 100", "00-99 con 50", etc.
     private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
 
-    // Soporta: terminales 7, ter 7, t 7, t-7, terminar 7, 07-97
+    // Terminales: Soporta "ter 7-10", "terminal 8 a 50", "t-5 20", "07-97-10"
     private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(\d)|t\s*[-]?\s*(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
 
-    // Soporta: los 30, del 30 al 39, 30-39, d-30, l-30, lineas 30
-    private const LINEAS = '/^(?:(?:los|del|l|d|lineas?)\s*(\d)0(?:s)?|(\d)0\s*al\s*\2[9]|(\d)0-\3[9])\D+(\d+)$/i';
+    // Líneas: Soporta "los 30-50", "del 20 al 29-10" Y el nuevo "50 pesos a todos los 70"
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(\d)0(?:s)?|(\d)0\s*al\s*\2[9]|(\d)0-\3[9])\D+(\d+)|(\d+)\D+todos\s+(?:los\s+)?(\d)0)$/i';
 
-    // Soporta: 38x70, 38*70, p-38x70 (P de parlet)
+    // Parlet: Soporta "38x70-100", "p-38*70 50"
     private const PARLET = '/^(?:p[- ])?(\d{1,2})[x\*](\d{1,2})\D+(\d+)$/i';
 
-    // Soporta: 77-100, t77-100, 1-500 (ahora acepta 1 dígito), p-100 (p como fijo)
+    // Normal: Soporta "77-100", "t05-10-10", "123-500", "1-500"
     private const NORMAL = '/^(?:t|p)?\s?(\d{1,3})\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
 
     protected BankListRepository $repository;
@@ -223,9 +223,18 @@ class ListParserService
 
             // 3. LÍNEAS (NUEVO)
             if (preg_match(self::LINEAS, $line, $matches)) {
-                $values = array_values(array_filter(array_slice($matches, 1), fn($v) => $v !== ''));
-                $decade = $values[0];
-                $amt = (int) end($values);
+                $values = array_values(array_filter($matches, fn($v) => $v !== ''));
+
+                // Si la coincidencia vino de "50 a todos los 70"
+                if (str_contains($line, 'todos')) {
+                    $amt = (int) $values[1];    // El primer número es el monto (50)
+                    $decade = $values[2];       // El segundo es la decena (7)
+                } else {
+                    // Si vino de "los 70 a 50"
+                    $decade = $values[1];       // El primer número es la decena (7)
+                    $amt = (int) end($values);  // El último es el monto (50)
+                }
+
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet('fixed', $decade.$i, $amt, originalLine: $line));
                 }
