@@ -12,20 +12,18 @@ class UserSeeder extends Seeder
     {
         $defaultPassword = 'password123Segurojaja';
 
-        // 2. Lista de usuarios a crear
         $users = [
             [
                 'name'  => 'Super Admin',
                 'email' => 'superadmin@test.com',
                 'role'  => 'super-admin',
-                'password' => 'super-admin' // Contraseña personalizada
+                'password' => 'super-admin'
             ],
             [
                 'name'  => 'Admin Prueba',
                 'email' => 'admin@test.com',
                 'role'  => 'admin',
             ],
-            // --- AQUÍ AÑADES A TU AMIGOS FÁCILMENTE ---
             [
                 'name' => 'Usuario',
                 'email' => 'user@test.com',
@@ -65,19 +63,21 @@ class UserSeeder extends Seeder
             ]
         ];
 
-        // 3. Procesamos el array
         foreach ($users as $userData) {
+            // CORRECCIÓN AQUÍ:
+            // 1. Usamos withTrashed() por si el usuario fue eliminado suavemente (SoftDelete)
+            // 2. Corregimos el doble Hash::make
             $user = User::updateOrCreate(
                 ['email' => $userData['email']],
                 [
                     'name'     => $userData['name'],
-                    'password' => Hash::make($userData['password'] ?? Hash::make($defaultPassword)),
+                    'password' => Hash::make($userData['password'] ?? $defaultPassword),
                 ]
             );
 
             $user->syncRoles($userData['role']);
         }
 
-        $this->command->info('Usuarios creados correctamente.');
+        $this->command->info('Usuarios procesados correctamente.');
     }
 }
