@@ -13,7 +13,7 @@ class ListParserService
     private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
 
     // Soporta: terminales 7, ter 7, t 7, t-7, terminar 7, 07-97
-    private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|termin(?:al(?:es)?|ar)?\s*\d?(\d)|t\s*[-]?\s*(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
+    private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(\d)|t\s*[-]?\s*(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
 
     // Soporta: los 30, del 30 al 39, 30-39, d-30, l-30, lineas 30
     private const LINEAS = '/^(?:(?:los|del|l|d|lineas?)\s*(\d)0(?:s)?|(\d)0\s*al\s*\2[9]|(\d)0-\3[9])\D+(\d+)$/i';
@@ -193,23 +193,11 @@ class ListParserService
     {
         $lines = explode("\n", $cleanText);
         $bets = collect();
-        $noCoincide = [];
 
         foreach ($lines as $line) {
             $line = strtolower(trim($line));
             // Ignorar si no hay números o es basura conocida
             if (empty($line) || !preg_match('/\d/', $line) || str_contains($line, 'attached:')) continue;
-
-            // 1. PAREJAS (Ahora con soporte para 3 montos)
-            if (preg_match(self::PAREJAS, $line, $matches)) {
-                $amt = (int)$matches[1];
-                $r1  = (int)($matches[2] ?? 0);
-                $r2  = (int)($matches[3] ?? 0);
-                for ($i = 0; $i <= 9; $i++) {
-                    $bets->push(new DetectedBet('fixed', $i.$i, $amt, $r1, $r2, $line));
-                }
-                continue;
-            }
 
             // 2. TERMINALES
             if (preg_match(self::TERMINALES, $line, $matches)) {
@@ -218,6 +206,17 @@ class ListParserService
                 $amt = (int) end($values);
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet('fixed', $i.$digit, $amt, originalLine: $line));
+                }
+                continue;
+            }
+
+            // 1. PAREJAS (Ahora con soporte para 3 montos)
+            if (preg_match(self::PAREJAS, $line, $matches)) {
+                $amt = (int)$matches[1];
+                $r1  = (int)($matches[2] ?? 0);
+                $r2  = (int)($matches[3] ?? 0);
+                for ($i = 0; $i <= 9; $i++) {
+                    $bets->push(new DetectedBet('fixed', $i.$i, $amt, $r1, $r2, $line));
                 }
                 continue;
             }

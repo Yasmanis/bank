@@ -183,6 +183,8 @@ class ListParserServiceTest extends TestCase
             "t05-100-20",     // Formato con 't' inicial
             "99-200-0-50",    // Fijo + C2 (C1 en cero)
             "07-15-10-10",    // Ceros a la izquierda
+            "38*30",
+            "20*20_5_5"
         ];
 
         // 1. Caso completo: 33-100-20-10
@@ -223,6 +225,23 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(200, $bets->first()->amount);
         $this->assertEquals(0, $bets->first()->runner1);
         $this->assertEquals(50, $bets->first()->runner2);
+        // 7. Fijo + C2 (C1 en cero): 99-200-0-50
+        $bets = $this->service->extractBets($formats[6]);
+        $this->assertEquals('07', $bets->first()->number);
+        $this->assertEquals(15, $bets->first()->amount);
+        $this->assertEquals(10, $bets->first()->runner1);
+        $this->assertEquals(10, $bets->first()->runner2);
+        //"38*30"
+        $bets = $this->service->extractBets($formats[7]);
+        $this->assertEquals('38', $bets->first()->number);
+        $this->assertEquals(30, $bets->first()->amount);
+        //"20*20_5_5"
+        $bets = $this->service->extractBets($formats[8]);
+        $this->assertEquals('20', $bets->first()->number);
+        $this->assertEquals(20, $bets->first()->amount);
+        $this->assertEquals(5, $bets->first()->runner1);
+        $this->assertEquals(5, $bets->first()->runner2);
+
     }
 
     /** @test */
