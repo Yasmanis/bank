@@ -9,11 +9,20 @@ use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
-    private const PAREJAS = '/^(?:(?:las\s+)?parejas?|(?:del\s+)?00\s+al\s+99|00-99)\D+(\d+)$/i';
-    private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|ter(?:minal(?:es)?)?\s*\d?(\d)|t\s*\d?(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
-    private const LINEAS = '/^(?:(?:los|del)\s+(\d)0|(?:del\s+)?(\d)0\s+al\s+\2[9]|(\d)0-\3[9])\D+(\d+)$/i';
-    private const PARLET = '/^(\d{1,2})[x\*](\d{1,2})\D+(\d+)$/i';
-    private const NORMAL = '/^t?\s?(\d{2,3})\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
+    // Soporta: parejas, parejaa, las pareja, 00-99, del 00 al 99 (y hasta 3 montos)
+    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
+
+    // Soporta: terminales 7, ter 7, t 7, t-7, terminar 7, 07-97
+    private const TERMINALES = '/^(?:(?:del\s+)?\d?(\d)\s+al\s+\d?\1|termin(?:al(?:es)?|ar)?\s*\d?(\d)|t\s*[-]?\s*(\d)|\d?(\d)-\d?\4)\D+(\d+)$/i';
+
+    // Soporta: los 30, del 30 al 39, 30-39, d-30, l-30, lineas 30
+    private const LINEAS = '/^(?:(?:los|del|l|d|lineas?)\s*(\d)0(?:s)?|(\d)0\s*al\s*\2[9]|(\d)0-\3[9])\D+(\d+)$/i';
+
+    // Soporta: 38x70, 38*70, p-38x70 (P de parlet)
+    private const PARLET = '/^(?:p[- ])?(\d{1,2})[x\*](\d{1,2})\D+(\d+)$/i';
+
+    // Soporta: 77-100, t77-100, 1-500 (ahora acepta 1 dígito), p-100 (p como fijo)
+    private const NORMAL = '/^(?:t|p)?\s?(\d{1,3})\D+(\d+)(?:\D+(\d+))?(?:\D+(\d+))?$/i';
 
     protected BankListRepository $repository;
 
@@ -33,6 +42,7 @@ class ListParserService
             'stripWhatsAppMetadata', // Quita "[fecha, hora] Usuario: "
             'stripSystemMessages',   // Quita mensajes de cifrado, grupos, etc.
             'stripAttachments',      // Quita menciones a archivos adjuntos
+            'stripComments',
             'stripEmptyLines',       // Elimina líneas en blanco sobrantes
         ];
 
@@ -89,6 +99,12 @@ class ListParserService
         // Elimina líneas vacías y espacios al inicio/final del string
         $text = preg_replace('/^[ \t]*[\r\n]+/m', '', $text);
         return trim($text);
+    }
+
+    private function stripComments(string $text): string
+    {
+        // Elimina todo lo que esté después de un # o texto sobrante al final de la línea
+        return preg_replace('/[#].*$/m', '', $text);
     }
 
     /**
@@ -177,70 +193,64 @@ class ListParserService
     {
         $lines = explode("\n", $cleanText);
         $bets = collect();
+        $noCoincide = [];
 
         foreach ($lines as $line) {
             $line = strtolower(trim($line));
-            if (empty($line) || !preg_match('/\d/', $line)) continue;
+            // Ignorar si no hay números o es basura conocida
+            if (empty($line) || !preg_match('/\d/', $line) || str_contains($line, 'attached:')) continue;
 
-            // 1. Intentar Parejas
+            // 1. PAREJAS (Ahora con soporte para 3 montos)
             if (preg_match(self::PAREJAS, $line, $matches)) {
                 $amt = (int)$matches[1];
+                $r1  = (int)($matches[2] ?? 0);
+                $r2  = (int)($matches[3] ?? 0);
                 for ($i = 0; $i <= 9; $i++) {
-                    $bets->push(new DetectedBet('fixed', $i.$i, $amt, originalLine: $line));
+                    $bets->push(new DetectedBet('fixed', $i.$i, $amt, $r1, $r2, $line));
                 }
                 continue;
             }
 
-            // 2. Intentar Terminales
+            // 2. TERMINALES
             if (preg_match(self::TERMINALES, $line, $matches)) {
-                // Quitamos el primer elemento (la línea completa) y filtramos vacíos
                 $values = array_values(array_filter(array_slice($matches, 1), fn($v) => $v !== ''));
-
-                // El dígito es el primero, el monto el último
                 $digit = $values[0];
                 $amt = (int) end($values);
-
                 for ($i = 0; $i <= 9; $i++) {
-                    $num = $i . $digit;
-                    $bets->push(new DetectedBet('fixed', $num, $amt, originalLine: $line));
+                    $bets->push(new DetectedBet('fixed', $i.$digit, $amt, originalLine: $line));
                 }
                 continue;
             }
 
-            // 3. Intentar Parlet
-            if (preg_match(self::PARLET, $line, $matches)) {
-                // Normalizamos a 2 dígitos (ej: 5 -> 05)
-                $n1 = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-                $n2 = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
-
-                // Ordenamos para que el menor siempre vaya primero
-                $nums = [$n1, $n2];
-                sort($nums);
-                $key = $nums[0] . 'x' . $nums[1]; // Resultado siempre será "05x10"
-
-                $amt = (int)$matches[3];
-
-                $bets->push(new DetectedBet('parlet', $key, $amt, originalLine: $line));
+            // 3. LÍNEAS (NUEVO)
+            if (preg_match(self::LINEAS, $line, $matches)) {
+                $values = array_values(array_filter(array_slice($matches, 1), fn($v) => $v !== ''));
+                $decade = $values[0];
+                $amt = (int) end($values);
+                for ($i = 0; $i <= 9; $i++) {
+                    $bets->push(new DetectedBet('fixed', $decade.$i, $amt, originalLine: $line));
+                }
                 continue;
             }
 
-            // 4. Normal / Tripletas
+            // 4. PARLET
+            if (preg_match(self::PARLET, $line, $matches)) {
+                $n1 = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+                $n2 = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+                $nums = [$n1, $n2]; sort($nums);
+                $bets->push(new DetectedBet('parlet', $nums[0].'x'.$nums[1], (int)$matches[3], originalLine: $line));
+                continue;
+            }
+
+            // 5. NORMAL / TRIPLETAS (Soporta 1 a 3 dígitos y prefijos t/p)
             if (preg_match(self::NORMAL, $line, $matches)) {
                 $num = str_pad($matches[1], (strlen($matches[1]) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
                 $type = strlen($num) === 3 ? 'hundred' : 'fixed';
-
-                $bets->push(new DetectedBet(
-                    type: $type,
-                    number: $num,
-                    amount: (int)$matches[2],
-                    runner1: (int)($matches[3] ?? 0),
-                    runner2: (int)($matches[4] ?? 0),
-                    originalLine: $line
-                ));
+                $bets->push(new DetectedBet($type, $num, (int)$matches[2], (int)($matches[3] ?? 0), (int)($matches[4] ?? 0), $line));
                 continue;
             }
 
-            // Aquí podríamos capturar las líneas que no coinciden con nada
+            $bets->push(new DetectedBet('error',"ND",0,0,0,$line));
         }
 
         return $bets;
