@@ -21,6 +21,16 @@ class ListParserServiceTest extends TestCase
     }
 
     /** @test */
+    public function test_pruebas_que_fallan()
+    {
+        $bets = $this->service->extractBets("50 con 50 pesos");
+        $firstBet = $bets->first();
+        $this->assertEquals('fixed', $firstBet->type);
+        $this->assertEquals('50', $firstBet->number);
+        $this->assertEquals(50, $firstBet->amount);
+    }
+
+    /** @test */
     public function it_cleans_whatsapp_metadata_correctly()
     {
         $dirtyText = "[1/2/26, 22:12:47] Jose Carlos SF: 33-100\n[1/2/26, 22:13:00] Admin: Messages and calls are end-to-end encrypted\n05-50";

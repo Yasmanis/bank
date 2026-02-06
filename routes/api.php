@@ -26,6 +26,24 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('list.validate');
     });
 
+    Route::prefix('daily-number')->group(function () {
+        Route::get('/', [\App\Http\Controllers\DailyNumberController::class, 'index'])
+            ->middleware('permission:daily_number.index')
+            ->name('daily_number.index');
+        Route::post('/', [\App\Http\Controllers\DailyNumberController::class, 'store'])
+            ->middleware('permission:daily_number.create')
+            ->name('daily_number.create');
+        Route::get('/{id}', [\App\Http\Controllers\DailyNumberController::class, 'show'])
+            ->middleware('permission:daily_number.show')
+            ->name('daily_number.show');
+        Route::delete('/{id}', [\App\Http\Controllers\DailyNumberController::class, 'destroy'])
+            ->middleware('permission:daily_number.delete')
+            ->name('daily_number.delete');
+        Route::patch('/{id}', [\App\Http\Controllers\DailyNumberController::class, 'update'])
+            ->middleware('permission:daily_number.edit')
+            ->name('daily_number.edit');
+    });
+
     Route::get('/user-permissions', [\App\Http\Controllers\UserController::class, 'userPermissions']);
     Route::get('/log-activity', [\App\Http\Controllers\ActivityLogController::class, 'index']);
 

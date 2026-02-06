@@ -23,6 +23,13 @@ class RoleSeeder extends Seeder
                 'list.view_all',
                 'list.delete',
             ],
+            'daily_number' => [
+                'daily_number.index',
+                'daily_number.show',
+                'daily_number.create',
+                'daily_number.edit',
+                'daily_number.delete',
+            ],
         ];
         $allPermissions = [];
         foreach ($permissionsByModule as $module => $perms) {
@@ -40,6 +47,11 @@ class RoleSeeder extends Seeder
                 'list.preview',
                 'list.view_all',
                 'list.delete',
+                'daily_number.index',
+                'daily_number.show',
+                'daily_number.create',
+                'daily_number.edit',
+                'daily_number.delete',
             ],
             'user' => [
                 'list.process',

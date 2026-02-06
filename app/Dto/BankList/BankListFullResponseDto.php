@@ -26,8 +26,8 @@ class BankListFullResponseDto
     {
         return new self(
             id: $model->id,
-            hourly: strtoupper($model->hourly->value ?? $model->hourly),
-            creator_name: $model->user->name, // Requiere que 'user' esté cargado
+            hourly: $model->hourly->value ?? $model->hourly,
+            creator_name: $model->user->name,
             created_at: $model->created_at->format('d/m/Y H:i'),
             status: $model->status ?? 'Pendiente',
             text: $model->text,

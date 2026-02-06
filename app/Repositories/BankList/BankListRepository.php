@@ -3,8 +3,9 @@
 namespace App\Repositories\BankList;
 
 use App\Models\BankList;
+use App\Repositories\RepositoryInterface;
 
-class BankListRepository
+class BankListRepository implements RepositoryInterface
 {
     protected \Illuminate\Database\Eloquent\Builder $model;
 
@@ -48,7 +49,9 @@ class BankListRepository
                 $q->whereDate('created_at', '<=', $to);
             });
 
-        return $query->latest()->paginate($perPage);
+        return $query->orderBy('created_at', 'desc')
+            ->orderBy('user_id', 'asc')
+            ->paginate($perPage);
     }
 
     public function delete($id): int
