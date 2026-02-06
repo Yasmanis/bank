@@ -12,7 +12,8 @@ class BankListPartialResponseDto
         public string $hourly,
         public string $creator_name,
         public string $created_at,
-        public string $status
+        public string $status,
+        public string $created_at_raw
     ) {}
 
     /**
@@ -25,7 +26,8 @@ class BankListPartialResponseDto
             hourly: $model->hourly,
             creator_name: $model->user->name,
             created_at: $model->created_at->format('d/m/Y H:i'),
-            status: $model->status
+            status: $model->status,
+            created_at_raw: $model->created_at
         );
     }
 }

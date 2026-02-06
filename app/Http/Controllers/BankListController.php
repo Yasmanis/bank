@@ -15,27 +15,35 @@ use Illuminate\Support\Facades\Gate;
 class BankListController extends Controller
 {
     protected ListParserService $listService;
+    protected BankListRepository $repository;
 
-    public function __construct(ListParserService $listService)
+    public function __construct(ListParserService $listService,BankListRepository $repository)
     {
         $this->listService = $listService;
+        $this->repository = $repository;
     }
 
     public function index(BankListIndexRequest $request)
     {
         try {
-            $bankListRepository = new BankListRepository();
             $filters = $request->validated();
             $perPage = $request->get('per_page', 15);
 
-            $paginator = $bankListRepository->getPaginated(
-                $filters,
-                auth()->id(),
-                $perPage
-            );
+            $paginator = $this->repository->getPaginated($filters, auth()->id(), $perPage);
             $paginator->appends($request->query());
             $paginator->through(fn ($model) => BankListPartialResponseDto::fromModel($model));
+            $groupedItems = $paginator->getCollection()
+                ->groupBy(function ($item) {
+                    return \Carbon\Carbon::parse($item->created_at_raw)->format('Y-m-d');
+                })
+                ->map(function ($dateGroup) {
+                    return $dateGroup->groupBy('creator_name');
+                });
+
+            $paginator->setCollection($groupedItems);
+
             return $this->successPaginated($paginator);
+
         } catch (\Throwable $th) {
             return $this->error('Error al obtener listas', 422, $th->getMessage());
         }
