@@ -3,34 +3,14 @@
 namespace App\Repositories\DailyNumber;
 
 use App\Models\DailyNumber;
+use App\Repositories\BaseRepository;
 use App\Repositories\RepositoryInterface;
 
-class DailyNumberRepository implements RepositoryInterface
+class DailyNumberRepository extends BaseRepository implements RepositoryInterface
 {
-    protected \Illuminate\Database\Eloquent\Builder $model;
     public function __construct()
     {
-        $this->model = DailyNumber::query();
-    }
-
-    public function getModelById($id): DailyNumber
-    {
-        return $this->model->findOrFail($id);
-    }
-
-    public function store(array $data): DailyNumber
-    {
-        return $this->model->create($data);
-    }
-
-    public function update(array $data,$id): bool
-    {
-        return $this->model->findOrFail($id)->update($data);
-    }
-
-    public function delete($id): int
-    {
-        return $this->model->findOrFail($id)->delete();
+        parent::__construct(DailyNumber::class);
     }
 
     public function getPaginated(array $filters, $perPage = 15)
@@ -43,6 +23,5 @@ class DailyNumberRepository implements RepositoryInterface
             ->latest('hourly')
             ->paginate($perPage);
     }
-
 
 }

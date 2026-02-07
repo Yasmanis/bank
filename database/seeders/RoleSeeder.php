@@ -30,6 +30,15 @@ class RoleSeeder extends Seeder
                 'daily_number.edit',
                 'daily_number.delete',
             ],
+            'transaction' => [
+                'transaction.index',
+                'transaction.show',
+                'transaction.create',
+                'transaction.edit',
+                'transaction.delete',
+                'transaction.get_balance',
+
+            ],
         ];
         $allPermissions = [];
         foreach ($permissionsByModule as $module => $perms) {
@@ -52,11 +61,19 @@ class RoleSeeder extends Seeder
                 'daily_number.create',
                 'daily_number.edit',
                 'daily_number.delete',
+                'transaction.index',
+                'transaction.show',
+                'transaction.create',
+                'transaction.edit',
+                'transaction.delete',
+                'transaction.get_balance',
+
             ],
             'user' => [
                 'list.process',
                 'list.preview',
                 'list.delete',
+                'transaction.get_balance'
             ],
         ];
 
