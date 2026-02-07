@@ -49,7 +49,7 @@ class ListParserServiceTest extends TestCase
         $this->assertStringNotContainsString("[4/2", $cleaned);
 
         // 3. Probar la extracción
-        $bets = $this->service->extractBets($cleaned);
+        ['bets' => $bets]  = $this->service->extractBets($cleaned);
 
         // IMPORTANTE: Ahora el conteo debe ser 2
         $this->assertCount(2, $bets);
@@ -83,7 +83,7 @@ class ListParserServiceTest extends TestCase
         ];
 
         foreach ($formats as $text) {
-            $bets = $this->service->extractBets($text);
+            ['bets' => $bets]  = $this->service->extractBets($text);
 
             // Verificamos que para cada formato genere las 10 parejas
             $this->assertCount(10, $bets, "Falló al procesar el formato: $text");
@@ -111,7 +111,7 @@ class ListParserServiceTest extends TestCase
         ];
 
         foreach ($formats as $text) {
-            $bets = $this->service->extractBets($text);
+            ['bets' => $bets]  = $this->service->extractBets($text);
 
             $this->assertCount(10, $bets, "Falló en el formato: $text");
 
@@ -137,44 +137,44 @@ class ListParserServiceTest extends TestCase
         ];
 
         // 1. Probar 05x10-50
-        $bets = $this->service->extractBets($formats[0]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[0]);
         $this->assertCount(1, $bets);
         $this->assertEquals('parlet', $bets->first()->type);
         $this->assertEquals('05x10', $bets->first()->number);
         $this->assertEquals(50, $bets->first()->amount);
 
         // 2. Probar con asterisco 38*70-100
-        $bets = $this->service->extractBets($formats[1]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[1]);
         $this->assertCount(1, $bets);
         $this->assertEquals('38x70', $bets->first()->number);
         $this->assertEquals(100, $bets->first()->amount);
 
         // 3. Probar autocompletado de ceros: 5x7 -> 05x07
-        $bets = $this->service->extractBets($formats[2]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[2]);
         $this->assertCount(1, $bets);
         $this->assertEquals('05x07', $bets->first()->number);
         $this->assertEquals(20, $bets->first()->amount);
 
         // 4. Probar ordenamiento automático: 70x38 -> 38x70
-        $bets = $this->service->extractBets($formats[3]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[3]);
         $this->assertCount(1, $bets);
         $this->assertEquals('38x70', $bets->first()->number);
         $this->assertEquals(15, $bets->first()->amount);
 
         // 5. Probar con guion bajo: 01x02_10
-        $bets = $this->service->extractBets($formats[4]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[4]);
         $this->assertCount(1, $bets);
         $this->assertEquals('01x02', $bets->first()->number);
         $this->assertEquals(10, $bets->first()->amount);
 
         // 6. Probar con palabra conectora: 01x02 con 10
-        $bets = $this->service->extractBets($formats[5]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[5]);
         $this->assertCount(1, $bets);
         $this->assertEquals('01x02', $bets->first()->number);
         $this->assertEquals(10, $bets->first()->amount);
 
         // 7. Probar con signo ×: 20×23-100
-        $bets = $this->service->extractBets($formats[6]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[6]);
         $this->assertCount(1, $bets);
         $this->assertEquals('20x23', $bets->first()->number);
         $this->assertEquals(100, $bets->first()->amount);
@@ -198,67 +198,67 @@ class ListParserServiceTest extends TestCase
         ];
 
         // 1. Caso completo: 33-100-20-10
-        $bets = $this->service->extractBets($formats[0]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[0]);
         $this->assertEquals('33', $bets->first()->number);
         $this->assertEquals(100, $bets->first()->amount);
         $this->assertEquals(20, $bets->first()->runner1);
         $this->assertEquals(10, $bets->first()->runner2);
 
         // 2. Fijo + C1: 44 50 10
-        $bets = $this->service->extractBets($formats[1]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[1]);
         $this->assertEquals('44', $bets->first()->number);
         $this->assertEquals(50, $bets->first()->amount);
         $this->assertEquals(10, $bets->first()->runner1);
         $this->assertEquals(0, $bets->first()->runner2);
 
         // 3. Solo Fijo: 55=30
-        $bets = $this->service->extractBets($formats[2]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[2]);
         $this->assertEquals('55', $bets->first()->number);
         $this->assertEquals(30, $bets->first()->amount);
         $this->assertEquals(0, $bets->first()->runner1);
         $this->assertEquals(0, $bets->first()->runner2);
 
         // 4. Centena: 123-500 (Debe ser tipo 'hundred')
-        $bets = $this->service->extractBets($formats[3]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[3]);
         $this->assertEquals('hundred', $bets->first()->type);
         $this->assertEquals('123', $bets->first()->number);
         $this->assertEquals(500, $bets->first()->amount);
 
         // 5. Con 't' inicial: t05-100-20
-        $bets = $this->service->extractBets($formats[4]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[4]);
         $this->assertEquals('05', $bets->first()->number);
         $this->assertEquals(100, $bets->first()->amount);
         $this->assertEquals(20, $bets->first()->runner1);
 
         // 6. Fijo + C2 (C1 en cero): 99-200-0-50
-        $bets = $this->service->extractBets($formats[5]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[5]);
         $this->assertEquals(200, $bets->first()->amount);
         $this->assertEquals(0, $bets->first()->runner1);
         $this->assertEquals(50, $bets->first()->runner2);
         // 7. Fijo + C2 (C1 en cero): 99-200-0-50
-        $bets = $this->service->extractBets($formats[6]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[6]);
         $this->assertEquals('07', $bets->first()->number);
         $this->assertEquals(15, $bets->first()->amount);
         $this->assertEquals(10, $bets->first()->runner1);
         $this->assertEquals(10, $bets->first()->runner2);
         //"38*30"
-        $bets = $this->service->extractBets($formats[7]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[7]);
         $this->assertEquals('38', $bets->first()->number);
         $this->assertEquals(30, $bets->first()->amount);
         //"20*20_5_5"
-        $bets = $this->service->extractBets($formats[8]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[8]);
         $this->assertEquals('20', $bets->first()->number);
         $this->assertEquals(20, $bets->first()->amount);
         $this->assertEquals(5, $bets->first()->runner1);
         $this->assertEquals(5, $bets->first()->runner2);
 
         //"20×23"
-        $bets = $this->service->extractBets($formats[9]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[9]);
         $this->assertEquals('20', $bets->first()->number);
         $this->assertEquals(23, $bets->first()->amount);
 
         //"10,25,30-5"
-        $bets = $this->service->extractBets($formats[10]);
+        ['bets' => $bets]  = $this->service->extractBets($formats[10]);
         $this->assertEquals('10', $bets[0]->number);
         $this->assertEquals(5, $bets[0]->amount);
         $this->assertEquals('25', $bets[1]->number);
@@ -266,6 +266,119 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals('30', $bets[2]->number);
         $this->assertEquals(5, $bets[2]->amount);
 
+    }
+
+    /** @test */
+    public function it_extracts_todos_los_format_correctly()
+    {
+        $formats = [
+            "50 pesos a todos los 70",
+            "100 a todos los 30",
+            "20 pesos todos los 00",
+            "10 todos 80"
+        ];
+
+        // 1. Probar "50 pesos a todos los 70"
+        ['bets' => $bets]  = $this->service->extractBets($formats[0]);
+        $this->assertCount(10, $bets);
+        $this->assertEquals('70', $bets->first()->number);
+        $this->assertEquals('79', $bets->last()->number);
+        $this->assertEquals(50, $bets->first()->amount);
+
+        // 2. Probar "100 a todos los 30"
+        ['bets' => $bets]  = $this->service->extractBets($formats[1]);
+        $this->assertEquals('30', $bets->first()->number);
+        $this->assertEquals(100, $bets->first()->amount);
+
+        // 3. Probar "10 todos 80" (formato ultra corto)
+        ['bets' => $bets]  = $this->service->extractBets($formats[3]);
+        $this->assertEquals('80', $bets->first()->number);
+        $this->assertEquals(10, $bets->first()->amount);
+    }
+
+    /** @test */
+    public function it_ignores_lines_without_numbers()
+    {
+        $text = "esta es una linea de texto sin apuestas";
+        ['bets' => $bets]  = $this->service->extractBets($text);
+
+        $this->assertCount(0, $bets);
+    }
+
+
+    /** @test */
+    public function it_extracts_triplets_correctly_based_on_three_amounts_or_prefix()
+    {
+        $formats = [
+            "t 50-10-10-10",      // Prefijo 't' + 3 montos
+            "50-10-40-100",       // Sin prefijo pero con 3 montos
+            "los 70-10-10-10",    // Línea con 3 montos
+            "ter 5-5-5-5",        // Terminal con 3 montos
+            "parejas-20-20-20"    // Parejas con 3 montos
+        ];
+
+        // 1. Caso Normal con prefijo 't'
+        ['bets' => $bets] = $this->service->extractBets($formats[0]);
+        $this->assertEquals('triplet', $bets->first()->type);
+        $this->assertEquals(10, $bets->first()->amount);
+        $this->assertEquals(10, $bets->first()->runner1);
+        $this->assertEquals(10, $bets->first()->runner2);
+
+        // 2. Caso Automático (3 montos detectados)
+        ['bets' => $bets] = $this->service->extractBets($formats[1]);
+        $this->assertEquals('triplet', $bets->first()->type);
+        $this->assertEquals(10, $bets->first()->amount);
+        $this->assertEquals(40, $bets->first()->runner1);
+        $this->assertEquals(100, $bets->first()->runner2);
+
+        // 3. Caso Línea (Genera 10 tripletas)
+        ['bets' => $bets] = $this->service->extractBets($formats[2]);
+        $this->assertCount(10, $bets);
+        $this->assertEquals('triplet', $bets->first()->type);
+        $this->assertEquals('70', $bets->first()->number);
+        $this->assertEquals(10, $bets->first()->amount);
+
+        // 4. Caso Terminal (Genera 10 tripletas)
+        ['bets' => $bets] = $this->service->extractBets($formats[3]);
+        $this->assertCount(10, $bets);
+        $this->assertEquals('triplet', $bets->first()->type);
+        $this->assertEquals('05', $bets->first()->number);
+    }
+
+
+    /** @test */
+    public function it_calculates_triplet_totals_separately_from_fixed()
+    {
+        $bets = collect([
+            // Una apuesta fija normal
+            new DetectedBet('fixed', '05', 100, 10, 10),
+            // Una tripleta
+            new DetectedBet('triplet', '33', 50, 50, 50),
+            // Otra tripleta
+            new DetectedBet('triplet', '44', 20, 20, 20),
+        ]);
+
+        $totals = $this->service->calculateTotals($bets);
+
+        // 1. Verificamos que el Fijo normal sume 100 (la tripleta no debe entrar aquí)
+        $this->assertEquals(100, $totals['fixed']);
+
+        // 2. Verificamos que los Corridos normales sumen 10 cada uno
+        $this->assertEquals(10, $totals['runner1']);
+        $this->assertEquals(10, $totals['runner2']);
+
+        // 3. Verificamos la nueva categoría de Tripletas
+        // Sumamos el monto base de las tripletas: 50 + 20 = 70
+        $this->assertEquals(70, $totals['triplet']);
+
+        // 4. Verificamos el detalle de tripletas
+        $this->assertArrayHasKey('33', $totals['triplet_details']);
+        $this->assertEquals(50, $totals['triplet_details']['33']);
+        $this->assertEquals(20, $totals['triplet_details']['44']);
+
+        // 5. El total general debe sumar TODO el dinero:
+        // (100+10+10) + (50+50+50) + (20+20+20) = 120 + 150 + 60 = 330
+        $this->assertEquals(330, $totals['total']);
     }
 
     /** @test */
@@ -295,42 +408,6 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(150, $totals['fixed_details']['05']);
     }
 
-    /** @test */
-    public function it_extracts_todos_los_format_correctly()
-    {
-        $formats = [
-            "50 pesos a todos los 70",
-            "100 a todos los 30",
-            "20 pesos todos los 00",
-            "10 todos 80"
-        ];
-
-        // 1. Probar "50 pesos a todos los 70"
-        $bets = $this->service->extractBets($formats[0]);
-        $this->assertCount(10, $bets);
-        $this->assertEquals('70', $bets->first()->number);
-        $this->assertEquals('79', $bets->last()->number);
-        $this->assertEquals(50, $bets->first()->amount);
-
-        // 2. Probar "100 a todos los 30"
-        $bets = $this->service->extractBets($formats[1]);
-        $this->assertEquals('30', $bets->first()->number);
-        $this->assertEquals(100, $bets->first()->amount);
-
-        // 3. Probar "10 todos 80" (formato ultra corto)
-        $bets = $this->service->extractBets($formats[3]);
-        $this->assertEquals('80', $bets->first()->number);
-        $this->assertEquals(10, $bets->first()->amount);
-    }
-
-    /** @test */
-    public function it_ignores_lines_without_numbers()
-    {
-        $text = "esta es una linea de texto sin apuestas";
-        $bets = $this->service->extractBets($text);
-
-        $this->assertCount(0, $bets);
-    }
 
     protected function tearDown(): void
     {
