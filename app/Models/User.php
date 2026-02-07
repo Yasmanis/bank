@@ -52,4 +52,11 @@ class User extends Authenticatable
         return $this->hasMany(BankList::class);
     }
 
+    /**
+     * Un Admin tiene una configuración de pagos.
+     */
+    public function config()
+    {
+        return $this->hasOne(AdminConfig::class);
+    }
 }

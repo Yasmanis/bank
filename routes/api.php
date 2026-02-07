@@ -63,7 +63,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/get-balance-user/{id}', [\App\Http\Controllers\TransactionController::class, 'getBalanceByUser'])
             ->middleware('permission:transaction.get_balance')
             ->name('transaction.get_balance');
-
+    });
+    Route::prefix('config-admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AdminConfigController::class, 'index'])
+            ->middleware('permission:config_admin.index')
+            ->name('config_admin.index');
+        Route::post('/', [\App\Http\Controllers\AdminConfigController::class, 'store'])
+            ->middleware('permission:config_admin.create')
+            ->name('config_admin.create');
+        Route::get('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'show'])
+            ->middleware('permission:config_admin.show')
+            ->name('config_admin.show');
+        Route::delete('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'destroy'])
+            ->middleware('permission:config_admin.delete')
+            ->name('config_admin.delete');
+        Route::patch('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'update'])
+            ->middleware('permission:config_admin.edit')
+            ->name('config_admin.edit');
     });
 
     Route::get('/user-permissions', [\App\Http\Controllers\UserController::class, 'userPermissions']);

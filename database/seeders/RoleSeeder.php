@@ -37,8 +37,15 @@ class RoleSeeder extends Seeder
                 'transaction.edit',
                 'transaction.delete',
                 'transaction.get_balance',
-
             ],
+            'config_admin' => [
+                'config_admin.index',
+                'config_admin.show',
+                'config_admin.create',
+                'config_admin.edit',
+                'config_admin.delete'
+            ],
+
         ];
         $allPermissions = [];
         foreach ($permissionsByModule as $module => $perms) {
@@ -67,6 +74,11 @@ class RoleSeeder extends Seeder
                 'transaction.edit',
                 'transaction.delete',
                 'transaction.get_balance',
+                'config_admin.index',
+                'config_admin.show',
+                'config_admin.create',
+                'config_admin.edit',
+                'config_admin.delete'
 
             ],
             'user' => [

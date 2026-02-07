@@ -22,7 +22,7 @@ class BankListFullResponseDto
     /**
      * Mapea un modelo BankList a este DTO.
      */
-    public static function fromModel(BankList $model): self
+    public static function fromModel($model): self
     {
         return new self(
             id: $model->id,
