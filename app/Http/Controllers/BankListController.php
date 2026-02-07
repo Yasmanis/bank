@@ -78,8 +78,14 @@ class BankListController extends Controller
                 'id' => $model->id
             ], 'Procesado con éxito');
 
+        } catch (\App\Exceptions\UnprocessedLinesException $e) {
+            return $this->error(
+                'Existe parte de la lista que no pudieron ser procesadas. Por favor revise',
+                422,
+                ['not_processed' => $e->getLines()]
+            );
         } catch (\Throwable $th) {
-            return $this->error('No se pudo procesar', 422, $th->getMessage());
+            return $this->error('Error interno del servidor', 500, $th->getMessage());
         }
     }
 

@@ -10,15 +10,15 @@ use Illuminate\Support\Facades\DB;
 class ListParserService
 {
     // Parejas: Soporta "las parejas 100", "00-99 con 50", etc.
-    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/i';
+    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
-    private const TERMINALES = '/^(?:(?:del\s+)?\d?(?<d1>\d)\s+al\s+\d?\k<d1>|ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d2>\d)|t\s*[-]?\s*(?<d3>\d)|\d?(?<d4>\d)-\d?\k<d4>)\D+(?<amt>\d+)$/i';
+    private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|\d?(?<d4>\d)-\d?\k<d4>)\D+(?<amt>\d+)$/iu';
 
-    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)\D+(?<amt1>\d+)|(?<amt2>\d+)\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/i';
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)\D+(?<amt1>\d+)|(?<amt2>\d+)\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
 
-    private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*](?<n2>\d{1,2})\D+(?<amt>\d+)$/i';
+    private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})\D+(?<amt>\d+)$/iu';
 
-    private const NORMAL = '/^(?:t|p)?\s?(?<num>\d{1,3})\D+(?<amt>\d+)(?:\D+(?<c1>\d+))?(?:\D+(?<c2>\d+))?$/i';
+    private const NORMAL = '/^(?:t|p)?\s?(?<list>\d{1,3}(?:[,\.]\d{1,3})*)\D+(?<amt>\d+)(?:\D+(?<c1>\d+))?(?:\D+(?<c2>\d+))?$/iu';
 
     protected BankListRepository $repository;
 
@@ -160,6 +160,12 @@ class ListParserService
         return DB::transaction(function () use ($user, $data) {
             $cleanedText = $this->cleanWhatsAppChat($data['text']);
             $bets          = $this->extractBets($cleanedText);
+            $errorLines = $bets->where('type', 'error')->pluck('originalLine');
+
+            if ($errorLines->isNotEmpty()) {
+                throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
+            }
+
             $processedData = $this->calculateTotals($bets);
             return $this->repository->store([
                 'user_id'        => $user->id,
@@ -225,9 +231,20 @@ class ListParserService
 
             // 5. NORMAL / TRIPLETAS (Soporta 1 a 3 dígitos y prefijos t/p)
             if (preg_match(self::NORMAL, $line, $m)) {
-                $num = str_pad($m['num'], (strlen($m['num']) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
-                $type = strlen($num) === 3 ? 'hundred' : 'fixed';
-                $bets->push(new DetectedBet($type, $num, (int)$m['amt'], (int)($m['c1'] ?? 0), (int)($m['c2'] ?? 0), $line));
+                // 1. Separamos los números por coma o punto
+                $numbers = preg_split('/[,\.]/', $m['list']);
+                $amt = (int)$m['amt'];
+                $c1  = (int)($m['c1'] ?? 0);
+                $c2  = (int)($m['c2'] ?? 0);
+
+                foreach ($numbers as $rawNum) {
+                    $cleanNum = trim($rawNum);
+                    if ($cleanNum === '') continue;
+                    $num = str_pad($cleanNum, (strlen($cleanNum) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
+                    $type = strlen($num) === 3 ? 'hundred' : 'fixed';
+
+                    $bets->push(new DetectedBet($type, $num, $amt, $c1, $c2, $line));
+                }
                 continue;
             }
 

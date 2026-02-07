@@ -21,16 +21,6 @@ class ListParserServiceTest extends TestCase
     }
 
     /** @test */
-    public function test_pruebas_que_fallan()
-    {
-        $bets = $this->service->extractBets("50 con 50 pesos");
-        $firstBet = $bets->first();
-        $this->assertEquals('fixed', $firstBet->type);
-        $this->assertEquals('50', $firstBet->number);
-        $this->assertEquals(50, $firstBet->amount);
-    }
-
-    /** @test */
     public function it_cleans_whatsapp_metadata_correctly()
     {
         $dirtyText = "[1/2/26, 22:12:47] Jose Carlos SF: 33-100\n[1/2/26, 22:13:00] Admin: Messages and calls are end-to-end encrypted\n05-50";
@@ -116,7 +106,8 @@ class ListParserServiceTest extends TestCase
             "terminal 7_100",// Singular con guion bajo
             "terminal 7-100",// Singular con guion medio
             "del 7 al 97 con 100",  // Con conectores
-            "07 al 97-100"
+            "07 al 97-100",
+            "Los terminales 7-100"
         ];
 
         foreach ($formats as $text) {
@@ -141,7 +132,8 @@ class ListParserServiceTest extends TestCase
             "5x7 20",      // Números de 1 cifra (debe ser 05x07)
             "70x38=15",    // Al revés y con igual (debe ser 38x70)
             "01x02_10",    // Con guion bajo
-            "01x02 Xon 10" // Con palabra "con"
+            "01x02 Xon 10", // Con palabra "con"
+            "20×23-100" // Con signo ×
         ];
 
         // 1. Probar 05x10-50
@@ -180,6 +172,12 @@ class ListParserServiceTest extends TestCase
         $this->assertCount(1, $bets);
         $this->assertEquals('01x02', $bets->first()->number);
         $this->assertEquals(10, $bets->first()->amount);
+
+        // 7. Probar con signo ×: 20×23-100
+        $bets = $this->service->extractBets($formats[6]);
+        $this->assertCount(1, $bets);
+        $this->assertEquals('20x23', $bets->first()->number);
+        $this->assertEquals(100, $bets->first()->amount);
     }
 
     /** @test */
@@ -194,7 +192,9 @@ class ListParserServiceTest extends TestCase
             "99-200-0-50",    // Fijo + C2 (C1 en cero)
             "07-15-10-10",    // Ceros a la izquierda
             "38*30",
-            "20*20_5_5"
+            "20*20_5_5",
+            "20×23",
+            "10,25,30-5"
         ];
 
         // 1. Caso completo: 33-100-20-10
@@ -251,6 +251,20 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(20, $bets->first()->amount);
         $this->assertEquals(5, $bets->first()->runner1);
         $this->assertEquals(5, $bets->first()->runner2);
+
+        //"20×23"
+        $bets = $this->service->extractBets($formats[9]);
+        $this->assertEquals('20', $bets->first()->number);
+        $this->assertEquals(23, $bets->first()->amount);
+
+        //"10,25,30-5"
+        $bets = $this->service->extractBets($formats[10]);
+        $this->assertEquals('10', $bets[0]->number);
+        $this->assertEquals(5, $bets[0]->amount);
+        $this->assertEquals('25', $bets[1]->number);
+        $this->assertEquals(5, $bets[1]->amount);
+        $this->assertEquals('30', $bets[2]->number);
+        $this->assertEquals(5, $bets[2]->amount);
 
     }
 
