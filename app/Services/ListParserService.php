@@ -109,22 +109,22 @@ class ListParserService
     /**
      * Calcula los TOTALES (Ventas/Riesgo) basándose en la colección de apuestas
      */
-    public function calculateTotals(Collection $bets): array
+    public function calculateTotals(Collection $bets, string $fullText = ''): array
     {
         return [
             // Totales globales (Simples y directos)
-            'fixed'   => (int) $bets->where('type', 'fixed')->sum('amount'),
-            'hundred' => (int) $bets->where('type', 'hundred')->sum('amount'),
-            'parlet'  => (int) $bets->where('type', 'parlet')->sum('amount'),
-            'runner1' => (int) $bets->sum('runner1'),
-            'runner2' => (int) $bets->sum('runner2'),
-            'total'   => (int) $bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
+            'fixed' => (int)$bets->where('type', 'fixed')->sum('amount'),
+            'hundred' => (int)$bets->where('type', 'hundred')->sum('amount'),
+            'parlet' => (int)$bets->where('type', 'parlet')->sum('amount'),
+            'runner1' => (int)$bets->sum('runner1'),
+            'runner2' => (int)$bets->sum('runner2'),
+            'total' => (int)$bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
 
             // Detalles (Agrupamos por número y sumamos)
             // Usamos sortKeys() para que siempre salgan en orden (00, 01, 02...)
-            'fixed_details'   => $this->sumByNumber($bets->where('type', 'fixed'), 'amount'),
+            'fixed_details' => $this->sumByNumber($bets->where('type', 'fixed'), 'amount'),
             'hundred_details' => $this->sumByNumber($bets->where('type', 'hundred'), 'amount'),
-            'parlet_details'  => $this->sumByNumber($bets->where('type', 'parlet'), 'amount'),
+            'parlet_details' => $this->sumByNumber($bets->where('type', 'parlet'), 'amount'),
 
             // Detalles de corridas (solo si el monto es > 0)
             'runner1_details' => $this->sumByNumber($bets->where('runner1', '>', 0), 'runner1'),
@@ -134,6 +134,7 @@ class ListParserService
                 ->pluck('originalLine')
                 ->values()
                 ->toArray(),
+            'full_text_cleaned' => $fullText
         ];
     }
 
@@ -143,7 +144,7 @@ class ListParserService
     private function sumByNumber(Collection $items, string $field): array
     {
         return $items->groupBy('number')
-            ->map(fn($group) => (int) $group->sum($field))
+            ->map(fn($group) => (int)$group->sum($field))
             ->sortKeys()
             ->toArray();
     }
@@ -159,7 +160,9 @@ class ListParserService
     {
         return DB::transaction(function () use ($user, $data) {
             $cleanedText = $this->cleanWhatsAppChat($data['text']);
-            $bets          = $this->extractBets($cleanedText);
+            $extraction = $this->extractBets($cleanedText);
+            $bets = $extraction['bets'];
+            $fullText = $extraction['full_text'];
             $errorLines = $bets->where('type', 'error')->pluck('originalLine');
 
             if ($errorLines->isNotEmpty()) {
@@ -168,10 +171,11 @@ class ListParserService
 
             $processedData = $this->calculateTotals($bets);
             return $this->repository->store([
-                'user_id'        => $user->id,
-                'text'           => $data['text'],
+                'user_id' => $user->id,
+                'text' => $data['text'],
                 'processed_text' => $processedData,
-                'hourly'         => $data['hourly']
+                'hourly' => $data['hourly'],
+                'full_text_cleaned' => $fullText
             ]);
         });
     }
@@ -180,78 +184,85 @@ class ListParserService
      * Motor Único de Extracción
      * Convierte texto plano en una Colección de objetos DetectedBet
      */
-    public function extractBets(string $cleanText): Collection
+    public function extractBets(string $cleanText): array
     {
         $lines = explode("\n", $cleanText);
         $bets = collect();
+        $finalLines = []; // Guardará todas las líneas que no son basura técnica
 
         foreach ($lines as $line) {
-            $line = strtolower(trim($line));
-            // Ignorar si no hay números o es basura conocida
-            if (empty($line) || !preg_match('/\d/', $line) || str_contains($line, 'attached:')) continue;
+            $trimmedLine = trim($line);
+            $lowerLine = strtolower($trimmedLine);
+
+            // 1. Filtrar basura técnica (mensajes de sistema, sin números, etc.)
+            if (empty($lowerLine) || !preg_match('/\d/', $lowerLine) || str_contains($lowerLine, 'attached:')) {
+                continue;
+            }
+
+            // Si llegó aquí, es una línea con contenido (válida o con error de formato)
+            $finalLines[] = $trimmedLine;
+            $matched = false; // Bandera para saber si entró en algún regex
 
             // 2. TERMINALES
-            if (preg_match(self::TERMINALES, $line, $m)) {
+            if (preg_match(self::TERMINALES, $lowerLine, $m)) {
                 $digit = $m['d1'] ?: ($m['d2'] ?: ($m['d3'] ?: $m['d4']));
                 $amt = (int)$m['amt'];
                 for ($i = 0; $i <= 9; $i++) {
-                    $bets->push(new DetectedBet('fixed', $i.$digit, $amt, originalLine: $line));
+                    $bets->push(new DetectedBet('fixed', $i . $digit, $amt, originalLine: $trimmedLine));
                 }
-                continue;
-            }
-            // 1. PAREJAS
-            if (preg_match(self::PAREJAS, $line, $m)) {
+                $matched = true;
+            } // 1. PAREJAS
+            elseif (preg_match(self::PAREJAS, $lowerLine, $m)) {
                 $amt = (int)$m['amt1'];
-                $r1  = (int)($m['amt2'] ?? 0);
-                $r2  = (int)($m['amt3'] ?? 0);
+                $r1 = (int)($m['amt2'] ?? 0);
+                $r2 = (int)($m['amt3'] ?? 0);
                 for ($i = 0; $i <= 9; $i++) {
-                    $bets->push(new DetectedBet('fixed', $i.$i, $amt, $r1, $r2, $line));
+                    $bets->push(new DetectedBet('fixed', $i . $i, $amt, $r1, $r2, $trimmedLine));
                 }
-                continue;
-            }
-
-            // 3. LÍNEAS (NUEVO)
-            if (preg_match(self::LINEAS, $line, $m)) {
+                $matched = true;
+            } // 3. LÍNEAS
+            elseif (preg_match(self::LINEAS, $lowerLine, $m)) {
                 $decade = $m['dec1'] ?: ($m['dec2'] ?: ($m['dec3'] ?: $m['dec4']));
                 $amt = (int)($m['amt1'] ?: $m['amt2']);
                 for ($i = 0; $i <= 9; $i++) {
-                    $bets->push(new DetectedBet('fixed', $decade.$i, $amt, originalLine: $line));
+                    $bets->push(new DetectedBet('fixed', $decade . $i, $amt, originalLine: $trimmedLine));
                 }
-                continue;
-            }
-
-            // 4. PARLET
-            if (preg_match(self::PARLET, $line, $m)) {
+                $matched = true;
+            } // 4. PARLET
+            elseif (preg_match(self::PARLET, $lowerLine, $m)) {
                 $n1 = str_pad($m['n1'], 2, '0', STR_PAD_LEFT);
                 $n2 = str_pad($m['n2'], 2, '0', STR_PAD_LEFT);
-                $nums = [$n1, $n2]; sort($nums);
-                $bets->push(new DetectedBet('parlet', $nums[0].'x'.$nums[1], (int)$m['amt'], originalLine: $line));
-                continue;
-            }
-
-            // 5. NORMAL / TRIPLETAS (Soporta 1 a 3 dígitos y prefijos t/p)
-            if (preg_match(self::NORMAL, $line, $m)) {
-                // 1. Separamos los números por coma o punto
-                $numbers = preg_split('/[,\.]/', $m['list']);
+                $nums = [$n1, $n2];
+                sort($nums);
+                $bets->push(new DetectedBet('parlet', $nums[0] . 'x' . $nums[1], (int)$m['amt'], originalLine: $trimmedLine));
+                $matched = true;
+            } // 5. NORMAL / LISTAS
+            elseif (preg_match(self::NORMAL, $lowerLine, $m)) {
+                $numbers = preg_split('/[,\.]/', $m['list'] ?? $m['num']);
                 $amt = (int)$m['amt'];
-                $c1  = (int)($m['c1'] ?? 0);
-                $c2  = (int)($m['c2'] ?? 0);
+                $c1 = (int)($m['c1'] ?? 0);
+                $c2 = (int)($m['c2'] ?? 0);
 
                 foreach ($numbers as $rawNum) {
                     $cleanNum = trim($rawNum);
                     if ($cleanNum === '') continue;
                     $num = str_pad($cleanNum, (strlen($cleanNum) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
                     $type = strlen($num) === 3 ? 'hundred' : 'fixed';
-
-                    $bets->push(new DetectedBet($type, $num, $amt, $c1, $c2, $line));
+                    $bets->push(new DetectedBet($type, $num, $amt, $c1, $c2, $trimmedLine));
                 }
-                continue;
+                $matched = true;
             }
 
-            $bets->push(new DetectedBet('error',"ND",0,0,0,$line));
+            // 3. Si no coincidió con nada, lo marcamos como error
+            if (!$matched) {
+                $bets->push(new DetectedBet('error', "ND", 0, 0, 0, $trimmedLine));
+            }
         }
 
-        return $bets;
+        return [
+            'bets' => $bets,
+            'full_text' => implode("\n", $finalLines)
+        ];
     }
 
 

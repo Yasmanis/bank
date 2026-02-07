@@ -107,8 +107,10 @@ class BankListController extends Controller
             ->log($request->text);
         try {
             $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($request->text);
-            $bets = $this->listService->extractBets($cleanedWhatsAppText);
-            $data = $this->listService->calculateTotals($bets);
+            $extraction  = $this->listService->extractBets($cleanedWhatsAppText);
+            $bets = $extraction['bets'];
+            $fullText = $extraction['full_text'];
+            $data = $this->listService->calculateTotals($bets, $fullText);
             return $this->success($data);
         } catch (\Throwable $th) {
             return $this->error('No se pudo previsualizar', 422, $th->getMessage());
