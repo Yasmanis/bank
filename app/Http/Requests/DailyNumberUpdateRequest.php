@@ -29,7 +29,9 @@ class DailyNumberUpdateRequest extends FormRequest
             'fixed'   => 'sometimes|required|string|size:2',
             'runner1' => 'sometimes|required|string|size:2',
             'runner2' => 'required|string|size:2',
+            //Campo unico para un mismo horario con hourly
             'date'    => 'sometimes|required|date',
+            //Campo unico para un mismo horario con date
             'hourly'  => [
                 'sometimes',
                 'required',

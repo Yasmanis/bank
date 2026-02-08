@@ -14,9 +14,11 @@ class TransactionUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
+            //es el usuario al que se le aplica la entrada o salida de saldo
             'user_id' => 'sometimes|required|exists:users,id',
             'amount' => 'sometimes|required|numeric|min:0.01',
             'type' => 'sometimes|required|in:income,outcome',
+            //Requerido para explicacion por que se edita
             'description' => 'sometimes|required|string|max:255',
             'date' => 'sometimes|required|date',
         ];

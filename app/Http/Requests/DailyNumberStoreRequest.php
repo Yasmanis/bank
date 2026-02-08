@@ -15,16 +15,16 @@ class DailyNumberStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Ahora hundred acepta exactamente 1 dígito (ej: "1")
+            //hundred acepta exactamente 1 dígito
             'hundred' => 'required|string|size:1',
 
             // Los demás mantienen sus 2 dígitos (ej: "50", "05")
             'fixed'   => 'required|string|size:2',
             'runner1' => 'required|string|size:2',
             'runner2' => 'required|string|size:2',
-
+            //Campo unico para un mismo horario con hourly
             'date'    => 'required|date',
-
+            //Campo unico para un mismo horario con date
             'hourly'  => [
                 'required',
                 'in:am,pm',

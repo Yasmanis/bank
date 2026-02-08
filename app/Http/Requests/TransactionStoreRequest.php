@@ -22,6 +22,7 @@ class TransactionStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
+            //es el usuario al que se le aplica la entrada o salida de saldo
             'user_id'     => 'required|exists:users,id',
             'amount'      => 'required|numeric|min:0.01',
             'type'        => 'required|in:income,outcome',

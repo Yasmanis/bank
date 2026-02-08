@@ -18,7 +18,7 @@ class AdminConfigStoreRequest extends FormRequest
             'user_id' => $user_id,
         ]);
         return [
-            // Validamos que el user_id sea único en la tabla
+            // Es el campo es unico, toma por defecto el usuario autenticado, solo el super-admin tiene permiso de crear otras config
             'user_id' => 'required|exists:users,id|unique:admin_configs,user_id',
             'fixed' => 'required|integer|min:1',
             'hundred' => 'required|integer|min:1',
