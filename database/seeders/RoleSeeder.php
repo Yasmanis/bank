@@ -16,6 +16,9 @@ class RoleSeeder extends Seeder
             'dashboard' => [
                 'dashboard.index',
             ],
+            'user' => [
+                'user.index'
+            ],
             'list' => [
                 'list.process',
                 'list.preview',

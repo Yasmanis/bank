@@ -82,6 +82,12 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('config_admin.edit');
     });
 
+    Route::prefix('user')->group(function () {
+        Route::get('/', [\App\Http\Controllers\UserController::class, 'index'])
+            ->middleware('permission:user.index')
+            ->name('user.index');
+    });
+
     Route::get('/user-permissions', [\App\Http\Controllers\UserController::class, 'userPermissions']);
     Route::get('/log-activity', [\App\Http\Controllers\ActivityLogController::class, 'index']);
 
