@@ -129,7 +129,8 @@ return [
 
     'middleware' => [
         'web',
-        RestrictedDocsAccess::class,
+        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        \Dedoc\Scramble\Http\Middleware\RestrictedDocsAccess::class,
     ],
 
     'extensions' => [],

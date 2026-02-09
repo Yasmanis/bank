@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
             if (app()->environment('local')) {
                 return true;
             }
+
+            // Intentamos obtener el usuario desde el token de Sanctum si el $user actual es null
+            $user = $user ?? auth('sanctum')->user();
+
             return $user && $user->hasRole('super-admin');
         });
 
