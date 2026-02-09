@@ -17,6 +17,9 @@ class TransactionRepository extends BaseRepository
         return Transaction::with(['user', 'admin', 'actioner'])
             ->when($filters['user_id'] ?? null, fn($q, $id) => $q->where('user_id', $id))
             ->when($filters['status'] ?? null, fn($q, $s) => $q->where('status', $s))
+            ->when($filters['type'] ?? null, fn($q, $t) => $q->where('type', $t))
+            ->when($filters['from'] ?? null, fn($q, $f) => $q->whereDate('date', '>=', $f))
+            ->when($filters['to'] ?? null, fn($q, $t) => $q->whereDate('date', '<=', $t))
             ->latest('date')
             ->paginate($perPage);
     }

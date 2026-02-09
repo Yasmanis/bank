@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dto\Transaction\TransactionResponseDto;
+use App\Http\Requests\TransactionIndexRequest;
 use App\Http\Requests\TransactionStoreRequest;
 use App\Http\Requests\TransactionUpdateRequest;
 use App\Models\Transaction;
@@ -20,12 +21,12 @@ class TransactionController extends Controller
         $this->repository = $repository;
     }
 
-    public function index(Request $request)
+    public function index(TransactionIndexRequest $request)
     {
-        $paginator = $this->repository->getPaginated($request->all());
-
+        $filters = $request->validated();
+        $perPage = $request->get('per_page', 15);
+        $paginator = $this->repository->getPaginated($filters, $perPage);
         $paginator->through(fn($model) => TransactionResponseDto::fromModel($model));
-
         return $this->successPaginated($paginator);
     }
 
