@@ -22,8 +22,18 @@ class TransactionStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //es el usuario al que se le aplica la entrada o salida de saldo
-            'user_id'     => 'required|exists:users,id',
+            //es el usuario al que se le aplica la entrada o salida de saldo ademas debe tener el rol user
+            'user_id' => [
+                'required',
+                'exists:users,id',
+                function ($attribute, $value, $fail) {
+                    // Buscamos al usuario
+                    $user = \App\Models\User::find($value);
+                    if ($user && !$user->hasRole('user')) {
+                        $fail('El usuario seleccionado debe ser un cliente (rol "user").');
+                    }
+                },
+            ],
             'amount'      => 'required|numeric|min:0.01',
             'type'        => 'required|in:income,outcome',
             'description' => 'required|string|max:255',
