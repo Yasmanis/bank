@@ -173,8 +173,7 @@ class ListParserService
                 'user_id' => $user->id,
                 'text' => $data['text'],
                 'processed_text' => $processedData,
-                'hourly' => $data['hourly'],
-                'full_text_cleaned' => $fullText
+                'hourly' => $data['hourly']
             ]);
         });
     }
