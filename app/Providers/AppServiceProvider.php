@@ -21,14 +21,19 @@ class AppServiceProvider extends ServiceProvider
             if (app()->environment('local')) {
                 return true;
             }
-
-            // Intentamos obtener el usuario desde el token de Sanctum si el $user actual es null
-            $user = $user ?? auth('sanctum')->user();
-
+            // Si te logueaste por la web, $user tendrá el objeto del super-admin
             return $user && $user->hasRole('super-admin');
         });
 
         Scramble::extendOpenApi(function (OpenApi $openApi) {
+            // Personalizamos la descripción general de la API
+            $openApi->info->description = "
+            ## Documentación Oficial de la API
+            Sesión de Administrador activa.
+
+            [➔ Cerrar Sesión (Salir de la documentación)](" . route('logout.docs') . ")
+        ";
+
             $openApi->secure(
                 SecurityScheme::http('bearer')
             );
