@@ -110,6 +110,10 @@ class BankListController extends Controller
             $extraction  = $this->listService->extractBets($cleanedWhatsAppText);
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
+            $errorLines = $bets->where('type', 'error')->pluck('originalLine');
+            if ($errorLines->isNotEmpty()) {
+                throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
+            }
             $data = $this->listService->calculateTotals($bets, $fullText);
             return $this->success($data);
         } catch (\Throwable $th) {
