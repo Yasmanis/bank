@@ -116,7 +116,14 @@ class BankListController extends Controller
             }
             $data = $this->listService->calculateTotals($bets, $fullText);
             return $this->success($data);
-        } catch (\Throwable $th) {
+        } catch (\App\Exceptions\UnprocessedLinesException $e) {
+            return $this->error(
+                'Existe parte de la lista que no pudieron ser procesadas. Por favor revise',
+                422,
+                ['not_processed' => $e->getLines()]
+            );
+        }
+        catch (\Throwable $th) {
             return $this->error('No se pudo previsualizar', 422, $th->getMessage());
         }
     }
