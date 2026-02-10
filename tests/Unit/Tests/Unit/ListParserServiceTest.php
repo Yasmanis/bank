@@ -79,7 +79,9 @@ class ListParserServiceTest extends TestCase
             "00 al 99=50",
             "Las parejas 50",
             "Las parejas -50",
-            "Las parejas con50"
+            "Las parejas con50",
+            "P-50",
+            "P-a-50"
         ];
 
         foreach ($formats as $text) {
@@ -107,7 +109,9 @@ class ListParserServiceTest extends TestCase
             "terminal 7-100",// Singular con guion medio
             "del 7 al 97 con 100",  // Con conectores
             "07 al 97-100",
-            "Los terminales 7-100"
+            "Los terminales 7-100",
+            "T7-100",
+            "T-7-100"
         ];
 
         foreach ($formats as $text) {

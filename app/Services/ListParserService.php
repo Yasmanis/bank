@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
-    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
+    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99|^p\b)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
     private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
@@ -198,44 +198,46 @@ class ListParserService
 
             $finalLines[] = $trimmedLine;
             $matched = false;
-            // --- 1. PARLET (Prioridad máxima por símbolos x * ×) ---
+
+            // 1. PARLET (Máxima prioridad)
             if (preg_match(self::PARLET, $lowerLine, $m)) {
-                $n1 = str_pad($m['n1'], 2, '0', STR_PAD_LEFT);
-                $n2 = str_pad($m['n2'], 2, '0', STR_PAD_LEFT);
+                $n1 = str_pad($m['n1'] ?? '', 2, '0', STR_PAD_LEFT);
+                $n2 = str_pad($m['n2'] ?? '', 2, '0', STR_PAD_LEFT);
                 $nums = [$n1, $n2]; sort($nums);
-                $bets->push(new DetectedBet('parlet', $nums[0] . 'x' . $nums[1], (int)$m['amt'], originalLine: $trimmedLine));
+                $bets->push(new DetectedBet('parlet', $nums[0] . 'x' . $nums[1], (int)($m['amt'] ?? 0), originalLine: $trimmedLine));
                 $matched = true;
             }
-            // --- 2. TERMINALES (ter, t [espacio] numero, 07-97) ---
+            // 2. TERMINALES
             elseif (preg_match(self::TERMINALES, $lowerLine, $m)) {
-                $digit = $m['d1'] ?: ($m['d2'] ?: ($m['d3'] ?: $m['d4']));
-                $amt = (int)$m['amt1'];
-                $c1 = (int)($m['amt2'] ?? 0);
-                $c2 = (int)($m['amt3'] ?? 0);
-                // Si tiene los 3 montos, es una "Tripleta de Terminales"
+                $digit = ($m['d1'] ?? '') ?: ($m['d2'] ?? '') ?: ($m['d3'] ?? '') ?: ($m['d4'] ?? '');
+                $amt = (int)($m['amt1'] ?? 0);
+                $c1  = (int)($m['amt2'] ?? 0);
+                $c2  = (int)($m['amt3'] ?? 0);
                 $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : 'fixed';
+
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet($type, $i . $digit, $amt, $c1, $c2, $trimmedLine));
                 }
                 $matched = true;
             }
-            // --- 3. PAREJAS (parejas, 00-99) ---
+            // 3. PAREJAS (Ahora capturará "P-50" antes que el bloque normal)
             elseif (preg_match(self::PAREJAS, $lowerLine, $m)) {
-                $amt = (int)$m['amt1'];
-                $c1 = (int)($m['amt2'] ?? 0);
-                $c2 = (int)($m['amt3'] ?? 0);
+                $amt = (int)($m['amt1'] ?? 0);
+                $c1  = (int)($m['amt2'] ?? 0);
+                $c2  = (int)($m['amt3'] ?? 0);
                 $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : 'fixed';
+
                 for ($i = 0; $i <= 9; $i++) {
                     $bets->push(new DetectedBet($type, $i . $i, $amt, $c1, $c2, $trimmedLine));
                 }
                 $matched = true;
             }
-            // --- 4. LÍNEAS (los 70, todos los 70) ---
+            // 4. LÍNEAS
             elseif (preg_match(self::LINEAS, $lowerLine, $m)) {
-                $decade = $m['dec1'] ?: ($m['dec2'] ?: ($m['dec3'] ?: $m['dec4']));
-                $amt = (int)($m['amt1'] ?: $m['t_amt1']);
-                $c1 = (int)($m['amt2'] ?: ($m['t_amt2'] ?? 0));
-                $c2 = (int)($m['amt3'] ?: ($m['t_amt3'] ?? 0));
+                $decade = ($m['dec1'] ?? '') ?: ($m['dec2'] ?? '') ?: ($m['dec3'] ?? '') ?: ($m['dec4'] ?? '');
+                $amt = (int)(($m['amt1'] ?? '') ?: ($m['t_amt1'] ?? 0));
+                $c1  = (int)(($m['amt2'] ?? '') ?: ($m['t_amt2'] ?? 0));
+                $c2  = (int)(($m['amt3'] ?? '') ?: ($m['t_amt3'] ?? 0));
                 $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : 'fixed';
 
                 for ($i = 0; $i <= 9; $i++) {
@@ -243,25 +245,20 @@ class ListParserService
                 }
                 $matched = true;
             }
-            // --- 5. NORMAL / TRIPLETAS / LISTAS (El resto de números) ---
+            // 5. NORMAL / LISTAS / TRIPLETAS
             elseif (preg_match(self::NORMAL, $lowerLine, $m)) {
-                $numbers = preg_split('/[,\.]/', $m['list']);
-                $amt = (int)$m['amt'];
-                $c1 = (int)($m['c1'] ?? 0);
-                $c2 = (int)($m['c2'] ?? 0);
+                $numbers = preg_split('/[,\.]/', $m['list'] ?? '');
+                $amt = (int)($m['amt'] ?? 0);
+                $c1  = (int)($m['c1'] ?? 0);
+                $c2  = (int)($m['c2'] ?? 0);
 
-                // Es tripleta si empieza con 't' O tiene los 3 montos
-                $isExplicitTripleta = str_starts_with($lowerLine, 't');
-                $isAutomaticTripleta = ($amt > 0 && $c1 > 0 && $c2 > 0);
-                $type = ($isExplicitTripleta || $isAutomaticTripleta) ? 'triplet' : null;
+                $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : null;
 
                 foreach ($numbers as $rawNum) {
                     $cleanNum = trim($rawNum);
                     if ($cleanNum === '') continue;
-
                     $num = str_pad($cleanNum, (strlen($cleanNum) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
                     $finalType = $type ?: (strlen($num) === 3 ? 'hundred' : 'fixed');
-
                     $bets->push(new DetectedBet($finalType, $num, $amt, $c1, $c2, $trimmedLine));
                 }
                 $matched = true;
@@ -271,6 +268,7 @@ class ListParserService
                 $bets->push(new DetectedBet('error', "ND", 0, 0, 0, $trimmedLine));
             }
         }
+
         return ['bets' => $bets, 'full_text' => implode("\n", $finalLines)];
     }
 
