@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login.docs');
 });
 
 Route::get('/login-docs', [\App\Http\Controllers\Auth\LoginDocsController::class, 'show'])->name('login.docs');
