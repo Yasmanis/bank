@@ -12,7 +12,7 @@ class AdminConfigPolicy
      */
     public function view(User $user, AdminConfig $adminConfig): bool
     {
-        return $user->hasRole('super-admin') || $user->id === $adminConfig->user_id;
+        return $user->hasRole('super-admin');
     }
 
     /**
@@ -20,7 +20,7 @@ class AdminConfigPolicy
      */
     public function update(User $user, AdminConfig $adminConfig): bool
     {
-        return $user->hasRole('super-admin') || $user->id === $adminConfig->user_id;
+        return $user->hasRole('super-admin');
     }
 
     /**

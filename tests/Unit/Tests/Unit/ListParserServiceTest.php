@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 use App\Services\ListParserService;
 use App\Repositories\BankList\BankListRepository;
@@ -20,7 +21,7 @@ class ListParserServiceTest extends TestCase
         $this->service = new ListParserService($repository);
     }
 
-    /** @test */
+    #[Test]
     public function it_cleans_whatsapp_metadata_correctly()
     {
         $dirtyText = "[1/2/26, 22:12:47] Jose Carlos SF: 33-100\n[1/2/26, 22:13:00] Admin: Messages and calls are end-to-end encrypted\n05-50";
@@ -33,7 +34,7 @@ class ListParserServiceTest extends TestCase
         $this->assertStringNotContainsString("encrypted", $cleaned);
     }
 
-    /** @test */
+    #[Test]
     public function it_extracts_multiple_normal_bets_correctly()
     {
         // 1. Datos de entrada con dos apuestas
@@ -67,7 +68,7 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(10, $secondBet->amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_extracts_all_parejas_formats_correctly()
     {
         $formats = [
@@ -96,7 +97,7 @@ class ListParserServiceTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_extracts_all_terminales_formats_correctly()
     {
         $formats = [
@@ -127,7 +128,7 @@ class ListParserServiceTest extends TestCase
             $this->assertEquals(100, $bets->first()->amount);
         }
     }
-    /** @test */
+    #[Test]
     public function it_extracts_all_parlet_formats_correctly()
     {
         $formats = [
@@ -184,7 +185,7 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(100, $bets->first()->amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_extracts_all_normal_bet_variations_correctly()
     {
         $formats = [
@@ -272,7 +273,7 @@ class ListParserServiceTest extends TestCase
 
     }
 
-    /** @test */
+    #[Test]
     public function it_extracts_todos_los_format_correctly()
     {
         $formats = [
@@ -300,7 +301,7 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(10, $bets->first()->amount);
     }
 
-    /** @test */
+    #[Test]
     public function it_ignores_lines_without_numbers()
     {
         $text = "esta es una linea de texto sin apuestas";
@@ -310,7 +311,7 @@ class ListParserServiceTest extends TestCase
     }
 
 
-    /** @test */
+    #[Test]
     public function it_extracts_triplets_correctly_based_on_three_amounts_or_prefix()
     {
         $formats = [
@@ -350,7 +351,7 @@ class ListParserServiceTest extends TestCase
     }
 
 
-    /** @test */
+    #[Test]
     public function it_calculates_triplet_totals_separately_from_fixed()
     {
         $bets = collect([
@@ -385,7 +386,7 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(330, $totals['total']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_totals_correctly()
     {
         // Creamos una colección manual de DTOs

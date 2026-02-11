@@ -23,7 +23,7 @@ return new class extends Migration
             $table->integer('runner2');  // Pago por cada $1 en Corrida 2
             $table->integer('triplet'); //
             // Porcentaje de comisión por defecto para sus usuarios
-            $table->decimal('default_commission', 5, 2)->default(25.00);
+            $table->decimal('commission', 5, 2)->default(25.00);
 
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('updated_by')->nullable()->constrained('users');

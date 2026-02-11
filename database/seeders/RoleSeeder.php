@@ -42,11 +42,18 @@ class RoleSeeder extends Seeder
                 'transaction.get_balance',
             ],
             'config_admin' => [
-                'config_admin.index',
-                'config_admin.show',
-                'config_admin.create',
-                'config_admin.edit',
-                'config_admin.delete'
+                'admin_config.index',
+                'admin_config.show',
+                'admin_config.create',
+                'admin_config.edit',
+                'admin_config.delete'
+            ],
+            'config_user' => [
+                'user_config.index',
+                'user_config.show',
+                'user_config.create',
+                'user_config.edit',
+                'user_config.delete'
             ],
 
         ];
@@ -77,11 +84,16 @@ class RoleSeeder extends Seeder
                 'transaction.edit',
                 'transaction.delete',
                 'transaction.get_balance',
-                'config_admin.index',
-                'config_admin.show',
-                'config_admin.create',
-                'config_admin.edit',
-                'config_admin.delete'
+                'admin_config.index',
+                'admin_config.show',
+                'admin_config.create',
+                'admin_config.edit',
+                'admin_config.delete',
+                'user_config.index',
+                'user_config.show',
+                'user_config.create',
+                'user_config.edit',
+                'user_config.delete'
 
             ],
             'user' => [

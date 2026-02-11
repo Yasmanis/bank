@@ -102,35 +102,34 @@ class ListParserService
     }
 
     /**
-     * Calcula los TOTALES (Ventas/Riesgo)
-     */
-    /**
-     * Calcula los TOTALES (Ventas/Riesgo) basándose en la colección de apuestas
+     * Calcula los TOTALES y guarda el rastro de las apuestas
      */
     public function calculateTotals(Collection $bets, string $fullText = ''): array
     {
-        // Las tripletas se filtran para que NO sumen en fixed/runner1/runner2 individualmente
-        $normalBets = $bets->where('type', '!=', 'triplet');
+        $normalBets = $bets->where('type', '!=', 'triplet')->where('type', '!=', 'error');
         $tripletBets = $bets->where('type', 'triplet');
 
         return [
-            'fixed' => (int)$normalBets->where('type', 'fixed')->sum('amount'),
+            // Totales globales
+            'fixed'   => (int)$normalBets->where('type', 'fixed')->sum('amount'),
             'hundred' => (int)$normalBets->where('type', 'hundred')->sum('amount'),
-            'parlet' => (int)$bets->where('type', 'parlet')->sum('amount'),
-            'triplet' => (int)$tripletBets->sum('amount'), // Sumamos la base de la tripleta
-
+            'parlet'  => (int)$bets->where('type', 'parlet')->sum('amount'),
+            'triplet' => (int)$tripletBets->sum('amount'),
             'runner1' => (int)$normalBets->sum('runner1'),
             'runner2' => (int)$normalBets->sum('runner2'),
+            'total'   => (int)$bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
 
-            'total' => (int)$bets->sum(fn($bet) => $bet->amount + $bet->runner1 + $bet->runner2),
-
-            'fixed_details' => $this->sumByNumber($normalBets->where('type', 'fixed'), 'amount'),
+            // Detalles para la vista rápida
+            'fixed_details'   => $this->sumByNumber($normalBets->where('type', 'fixed'), 'amount'),
             'hundred_details' => $this->sumByNumber($normalBets->where('type', 'hundred'), 'amount'),
-            'parlet_details' => $this->sumByNumber($bets->where('type', 'parlet'), 'amount'),
-            'triplet_details' => $this->sumByNumber($tripletBets, 'amount'), // Detalle de tripletas
-
+            'parlet_details'  => $this->sumByNumber($bets->where('type', 'parlet'), 'amount'),
+            'triplet_details' => $this->sumByNumber($tripletBets, 'amount'),
             'runner1_details' => $this->sumByNumber($normalBets->where('runner1', '>', 0), 'runner1'),
             'runner2_details' => $this->sumByNumber($normalBets->where('runner2', '>', 0), 'runner2'),
+
+            // --- IMPORTANTE PARA LA LIQUIDACIÓN ---
+            // Guardamos todas las apuestas individuales para procesar premios después
+            'bets' => $bets->where('type', '!=', 'error')->values()->toArray(),
 
             'not_processed' => $bets->where('type', 'error')->pluck('originalLine')->values()->toArray(),
             'full_text_cleaned' => $fullText

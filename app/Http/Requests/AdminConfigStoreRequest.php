@@ -26,7 +26,7 @@ class AdminConfigStoreRequest extends FormRequest
             'runner1' => 'required|integer|min:1',
             'runner2' => 'required|integer|min:1',
             'triplet' => 'required|integer|min:1',
-            'default_commission' => 'required|numeric|between:0,100',
+            'commission' => 'required|numeric|between:0,100',
         ];
     }
 

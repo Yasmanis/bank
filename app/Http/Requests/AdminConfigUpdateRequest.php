@@ -19,7 +19,7 @@ class AdminConfigUpdateRequest extends FormRequest
             'parlet' => 'sometimes|required|integer|min:1',
             'runner1' => 'sometimes|required|integer|min:1',
             'runner2' => 'sometimes|required|integer|min:1',
-            'default_commission' => 'sometimes|required|numeric|between:0,100',
+            'commission' => 'sometimes|required|numeric|between:0,100',
         ];
     }
 }

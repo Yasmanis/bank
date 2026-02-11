@@ -66,20 +66,41 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::prefix('config-admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\AdminConfigController::class, 'index'])
-            ->middleware('permission:config_admin.index')
-            ->name('config_admin.index');
+            ->middleware('permission:admin_config.index')
+            ->name('admin_config.index');
         Route::post('/', [\App\Http\Controllers\AdminConfigController::class, 'store'])
-            ->middleware('permission:config_admin.create')
-            ->name('config_admin.create');
+            ->middleware('permission:admin_config.create')
+            ->name('admin_config.create');
         Route::get('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'show'])
-            ->middleware('permission:config_admin.show')
-            ->name('config_admin.show');
+            ->middleware('permission:admin_config.show')
+            ->name('admin_config.show');
         Route::delete('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'destroy'])
-            ->middleware('permission:config_admin.delete')
-            ->name('config_admin.delete');
+            ->middleware('permission:admin_config.delete')
+            ->name('admin_config.delete');
         Route::patch('/{id}', [\App\Http\Controllers\AdminConfigController::class, 'update'])
-            ->middleware('permission:config_admin.edit')
-            ->name('config_admin.edit');
+            ->middleware('permission:admin_config.edit')
+            ->name('admin_config.edit');
+    });
+
+    Route::prefix('config-user')->group(function () {
+        Route::get('/', [\App\Http\Controllers\UserConfigController::class, 'index'])
+            ->middleware('permission:user_config.index')
+            ->name('user_config.index');
+        Route::post('/', [\App\Http\Controllers\UserConfigController::class, 'store'])
+            ->middleware('permission:user_config.create')
+            ->name('user_config.create');
+        Route::get('/{id}', [\App\Http\Controllers\UserConfigController::class, 'show'])
+            ->middleware('permission:user_config.show')
+            ->name('user_config.show');
+        Route::get('/user/{id}', [\App\Http\Controllers\UserConfigController::class, 'getByUserId'])
+            ->middleware('permission:user_config.show')
+            ->name('user_config.show');
+        Route::delete('/{id}', [\App\Http\Controllers\UserConfigController::class, 'destroy'])
+            ->middleware('permission:user_config.delete')
+            ->name('user_config.delete');
+        Route::patch('/{id}', [\App\Http\Controllers\UserConfigController::class, 'update'])
+            ->middleware('permission:user_config.edit')
+            ->name('user_config.edit');
     });
 
     Route::prefix('user')->group(function () {
