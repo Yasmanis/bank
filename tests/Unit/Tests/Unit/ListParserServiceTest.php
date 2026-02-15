@@ -302,16 +302,6 @@ class ListParserServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_lines_without_numbers()
-    {
-        $text = "esta es una linea de texto sin apuestas";
-        ['bets' => $bets]  = $this->service->extractBets($text);
-
-        $this->assertCount(0, $bets);
-    }
-
-
-    #[Test]
     public function it_extracts_triplets_correctly_based_on_three_amounts_or_prefix()
     {
         $formats = [
@@ -411,6 +401,20 @@ class ListParserServiceTest extends TestCase
 
         // Verificar detalle específico
         $this->assertEquals(150, $totals['fixed_details']['05']);
+    }
+
+
+    #[Test]
+    public function it_texto_plano()
+    {
+        $dirtyText = "pepe";
+
+        $cleaned = $this->service->cleanWhatsAppChat($dirtyText);
+
+        $this->assertEquals("pepe", $cleaned);
+        ['bets' => $bets]  = $this->service->extractBets($cleaned);
+        $firstBet = $bets->first();
+        $this->assertEquals('error', $firstBet->type);
     }
 
 

@@ -192,6 +192,7 @@ class ListParserService
             $lowerLine = strtolower($trimmedLine);
 
             if (empty($lowerLine) || !preg_match('/\d/', $lowerLine) || str_contains($lowerLine, 'attached:')) {
+                $bets->push(new DetectedBet('error', "ND", 0, 0, 0, $trimmedLine));
                 continue;
             }
 
