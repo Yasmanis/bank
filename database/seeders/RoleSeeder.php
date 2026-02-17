@@ -93,7 +93,8 @@ class RoleSeeder extends Seeder
                 'user_config.show',
                 'user_config.create',
                 'user_config.edit',
-                'user_config.delete'
+                'user_config.delete',
+                'user.index'
 
             ],
             'user' => [
