@@ -6,6 +6,7 @@ use App\Dto\BankList\BankListFullResponseDto;
 use App\Dto\BankList\BankListPartialResponseDto;
 use App\Http\Requests\BankListIndexRequest;
 use App\Http\Requests\ProcessListRequest;
+use App\Http\Requests\ValidateListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
 use App\Services\ListParserService;
@@ -142,16 +143,14 @@ class BankListController extends Controller
     }
 
 
-    public function validate(Request $request, $id)
+    public function validate(ValidateListRequest $request, $id)
     {
-        $request->validate([
-            'status' => 'required|in:approved,denied'
-        ]);
         try {
             $bankListRepository = new BankListRepository();
             $approvedBy = $request->status == BankList::STATUS_APPROVED ? auth()->id() : null;
             $data = [
                 'status' => $request->status,
+                'bank_id' => $request->bank_id,
                 'updated_by' => auth()->id(),
                 'approved_by' => $approvedBy
             ];
