@@ -12,7 +12,7 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
     {
         parent::__construct(BankList::class);
     }
-    public function getPaginated(array $filters, int|string|null $userId, $perPage = 15): \Illuminate\Pagination\LengthAwarePaginator
+    public function getPaginatedByUser(array $filters, int|string|null $userId, $perPage = 15): \Illuminate\Pagination\LengthAwarePaginator
     {
         $query = BankList::with('user');
         if (!auth()->user()->can('list.view_all')) {

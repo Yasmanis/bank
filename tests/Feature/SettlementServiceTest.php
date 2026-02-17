@@ -3,18 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\AdminConfig;
+use App\Models\Bank; // Nuevo
 use App\Models\BankList;
 use App\Models\DailyNumber;
 use App\Models\User;
 use App\Services\SettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
-
-// Importante
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-
-// Para quitar los warnings
 
 class SettlementServiceTest extends TestCase
 {
@@ -23,22 +20,30 @@ class SettlementServiceTest extends TestCase
     private SettlementService $service;
     private User $admin;
     private User $user;
+    private Bank $bank; // Instancia para los tests
 
     protected function setUp(): void
     {
         parent::setUp();
 
+        // 1. Crear roles
         Role::create(['name' => 'admin']);
         Role::create(['name' => 'user']);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
-
         $this->actingAs($this->admin);
+
+        // 2. CREAR UN BANCO (Requisito para la nueva arquitectura)
+        $this->bank = Bank::create([
+            'name' => 'Banco de Prueba',
+            'admin_id' => $this->admin->id,
+            'is_active' => true
+        ]);
 
         $this->service = app(SettlementService::class);
 
-        // Desactivar protección de campos si es necesario o asegurar fillable
+        // 3. Configuración Maestra
         AdminConfig::create([
             'user_id' => $this->admin->id,
             'fixed' => 80,
@@ -80,15 +85,18 @@ class SettlementServiceTest extends TestCase
             ]
         ];
 
+        // 4. Asignamos el bank_id a la lista
         BankList::create([
             'user_id' => $this->user->id,
+            'bank_id' => $this->bank->id, // <--- Relación con banco
             'hourly' => $hourly,
             'text' => 'texto sucio',
             'processed_text' => $processedText,
             'created_at' => $date . ' 10:00:00'
         ]);
 
-        $result = $this->service->calculate($this->user->id, $date, $hourly);
+        // 5. Llamamos al servicio con el nuevo parámetro bank_id
+        $result = $this->service->calculate($this->user->id, $this->bank->id, $date, $hourly);
 
         $this->assertEquals(100, $result->total_sales);
         $this->assertEquals(20, $result->commission_amt);
@@ -107,7 +115,6 @@ class SettlementServiceTest extends TestCase
             'runner1' => 25,
             'runner2' => 25,
             'commission' => 10.00,
-            'created_by' => $this->admin->id
         ]);
 
         $date = '2026-02-11';
@@ -120,6 +127,7 @@ class SettlementServiceTest extends TestCase
 
         BankList::create([
             'user_id' => $this->user->id,
+            'bank_id' => $this->bank->id, // <--- Relación con banco
             'hourly' => $hourly,
             'processed_text' => [
                 'total' => 100,
@@ -131,7 +139,8 @@ class SettlementServiceTest extends TestCase
             'text' => 'texto sucio'
         ]);
 
-        $result = $this->service->calculate($this->user->id, $date, $hourly);
+        // 6. Actualizamos el llamado aquí también
+        $result = $this->service->calculate($this->user->id, $this->bank->id, $date, $hourly);
 
         $this->assertEquals(900, $result->total_prizes);
         $this->assertEquals(10, $result->commission_amt);

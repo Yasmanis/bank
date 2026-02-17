@@ -32,6 +32,7 @@ class TransactionUpdateRequest extends FormRequest
             //Requerido para explicacion por que se edita
             'description' => 'sometimes|required|string|max:255',
             'date' => 'sometimes|required|date',
+            'bank_id'     => 'required|exists:banks,id',
         ];
     }
 }

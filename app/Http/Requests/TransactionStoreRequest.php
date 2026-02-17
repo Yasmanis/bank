@@ -38,6 +38,7 @@ class TransactionStoreRequest extends FormRequest
             'type'        => 'required|in:income,outcome',
             'description' => 'required|string|max:255',
             'date'        => 'required|date',
+            'bank_id'     => 'required|exists:banks,id',
         ];
     }
 }

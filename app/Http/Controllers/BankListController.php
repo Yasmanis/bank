@@ -29,7 +29,7 @@ class BankListController extends Controller
             $filters = $request->validated();
             $perPage = $request->get('per_page', 15);
 
-            $paginator = $this->repository->getPaginated($filters, auth()->id(), $perPage);
+            $paginator = $this->repository->getPaginatedByUser($filters, auth()->id(), $perPage);
             $paginator->appends($request->query());
             $paginator->through(fn ($model) => BankListPartialResponseDto::fromModel($model));
             $groupedItems = $paginator->getCollection()

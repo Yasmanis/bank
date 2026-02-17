@@ -6,6 +6,7 @@ class SettlementResultDto
 {
     public function __construct(
         public int $user_id,
+        public int $bank_id,
         public string $user_name,
         public string $date,
         public string $hourly,

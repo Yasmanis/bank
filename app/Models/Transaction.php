@@ -42,6 +42,11 @@ class Transaction extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function bank(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Bank::class, 'bank_id');
+    }
+
     public function actioner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'actioned_by');

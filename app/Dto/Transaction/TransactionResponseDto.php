@@ -16,7 +16,8 @@ class TransactionResponseDto
         public string  $description,
         public string  $date,
         public string  $created_by_name,
-        public ?string $actioned_by_name = null
+        public ?string $actioned_by_name = null,
+        public ?string $bank_name = null
     )
     {
     }
@@ -33,7 +34,8 @@ class TransactionResponseDto
             description: $model->description,
             date: $model->date->format('d/m/Y'),
             created_by_name: $model->admin->name ?? 'Sistema',
-            actioned_by_name: $model->actioner->name ?? null
+            actioned_by_name: $model->actioner->name ?? null,
+            bank_name: $model->bank->name ?? null
         );
     }
 }

@@ -42,7 +42,7 @@ class TransactionController extends Controller
             DB::commit();
             return $this->success([
                 'id' => $transaction->id,
-                'new_balance' => $this->repository->getUserBalance($request->user_id)
+                'new_balance' => $this->repository->getUserBalanceByBank($request->user_id, $request->bank_id)
             ], 'Transacción registrada correctamente');
 
         } catch (\Throwable $th) {
@@ -71,7 +71,7 @@ class TransactionController extends Controller
             DB::commit();
             return $this->success([
                 'id' => $model->id,
-                'new_balance' => $this->repository->getUserBalance($model->user_id)
+                'new_balance' => $this->repository->getUserBalanceByBank($model->user_id, $model->bank_id)
             ], 'Transacción actualizada correctamente');
 
         } catch (\Throwable $th) {

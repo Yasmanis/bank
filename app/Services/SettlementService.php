@@ -13,37 +13,36 @@ use Illuminate\Support\Facades\DB;
 
 class SettlementService
 {
-    public function calculate(int $userId, string $date, string $hourly): SettlementResultDto
+    /**
+     * Calcula la liquidación filtrando por BANCO.
+     */
+    public function calculate(int $userId, int $bankId, string $date, string $hourly): SettlementResultDto
     {
         $user = User::findOrFail($userId);
-        $rates = $user->getEffectiveRates();
+        $rates = $user->getEffectiveRates(); // La lógica de prioridad se mantiene
 
-        $win = DailyNumber::whereDate('date', $date)
-            ->where('hourly', $hourly)
-            ->first();
+        $win = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
+        if (!$win) throw new \Exception("Falta el número ganador para este turno.");
 
-        if (!$win) {
-            throw new \Exception("No hay número ganador registrado para esta fecha y horario.");
-        }
-
+        // FILTRO POR BANCO: Solo obtenemos las listas enviadas a este banco específico
         $lists = BankList::where('user_id', $userId)
+            ->where('bank_id', $bankId)
             ->whereDate('created_at', $date)
             ->where('hourly', $hourly)
             ->get();
 
-        $totalSales = $lists->sum(fn($l) => $l->processed_text['total'] ?? 0);
+        if ($lists->isEmpty()) throw new \Exception("No hay ventas registradas para este usuario en este banco.");
 
-        // --- LÓGICA DE CÁLCULO DE PREMIOS ---
+        $totalSales = $lists->sum(fn($l) => $l->processed_text['total'] ?? 0);
         $prizesData = $this->calculateTotalPrizes($lists, $win, $rates);
 
         $commissionAmt = $totalSales * ($rates['commission'] / 100);
         $netSales = $totalSales - $commissionAmt;
-
-        // Saldo final: Lo que el listero debe entregar al admin (o cobrar si es negativo)
         $finalBalance = $netSales - $prizesData['total'];
 
         return new SettlementResultDto(
             user_id: $user->id,
+            bank_id: $bankId,
             user_name: $user->name,
             date: $date,
             hourly: $hourly,
@@ -146,17 +145,19 @@ class SettlementService
         ];
     }
 
-    public function processSettlement(int $userId, string $date, string $hourly)
+    /**
+     * Procesa y guarda el cierre, vinculándolo al banco.
+     */
+    public function processSettlement(int $userId, int $bankId, string $date, string $hourly)
     {
-        return DB::transaction(function () use ($userId, $date, $hourly) {
-            // 1. Calculamos los datos (usando el método calculate que ya tenemos)
-            $resultDto = $this->calculate($userId, $date, $hourly);
+        return DB::transaction(function () use ($userId, $bankId, $date, $hourly) {
+            $resultDto = $this->calculate($userId, $bankId, $date, $hourly);
+            $dailyNumber = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
 
-            $dailyNumber = DailyNumber::where('date', $date)->where('hourly', $hourly)->first();
-
-            // 2. Crear el registro de liquidación
+            // 1. Guardar Recibo de Liquidación con bank_id
             $settlement = Settlement::create([
                 'user_id' => $userId,
+                'bank_id' => $bankId,
                 'daily_number_id' => $dailyNumber->id,
                 'date' => $date,
                 'hourly' => $hourly,
@@ -169,17 +170,16 @@ class SettlementService
                 'created_by' => auth()->id()
             ]);
 
-            // 3. Crear la Transacción Automática
-            // Si el balance es positivo, el listero debe dinero al admin (income para el admin)
-            // Si es negativo, el admin debe al listero (outcome para el admin)
+            // 2. Crear Transacción Automática vinculada al Banco
             $type = $resultDto->final_balance >= 0 ? 'income' : 'outcome';
 
             Transaction::create([
                 'user_id' => $userId,
+                'bank_id' => $bankId, // La deuda es con este banco
                 'settlement_id' => $settlement->id,
-                'amount' => abs($resultDto->final_balance), // Siempre positivo en transacciones
+                'amount' => abs($resultDto->final_balance),
                 'type' => $type,
-                'description' => "Liquidación automática: " . $date . " (" . strtoupper($hourly) . ")",
+                'description' => "Liquidación automática - Banco: " . $settlement->bank->name,
                 'date' => now(),
                 'status' => 'approved',
                 'created_by' => auth()->id(),

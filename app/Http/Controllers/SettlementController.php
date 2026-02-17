@@ -24,6 +24,7 @@ class SettlementController extends Controller
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
+            'bank_id' => 'required|exists:banks,id', // Requerido
             'date'    => 'required|date',
             'hourly'  => 'required|in:am,pm'
         ]);
@@ -31,6 +32,7 @@ class SettlementController extends Controller
         try {
             $result = $this->service->calculate(
                 $request->user_id,
+                $request->bank_id,
                 $request->date,
                 $request->hourly
             );

@@ -22,6 +22,7 @@ class ProcessListRequest extends FormRequest
         return [
             'text' => 'required|string|min:1',
             'hourly' => 'required|in:am,pm',
+            'bank_id' => 'required|exists:banks,id',
         ];
     }
 

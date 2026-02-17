@@ -94,7 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('user_config.show');
         Route::get('/user/{id}', [\App\Http\Controllers\UserConfigController::class, 'getByUserId'])
             ->middleware('permission:user_config.show')
-            ->name('user_config.show');
+            ->name('user_config.show_by_user');
         Route::delete('/{id}', [\App\Http\Controllers\UserConfigController::class, 'destroy'])
             ->middleware('permission:user_config.delete')
             ->name('user_config.delete');
@@ -107,6 +107,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [\App\Http\Controllers\UserController::class, 'index'])
             ->middleware('permission:user.index')
             ->name('user.index');
+    });
+
+    Route::prefix('banks')->group(function () {
+        Route::get('/', [\App\Http\Controllers\BankController::class, 'index'])
+            ->middleware('permission:banks.index')
+            ->name('banks.index');
+        Route::post('/', [\App\Http\Controllers\BankController::class, 'store'])
+            ->middleware('permission:banks.create')
+            ->name('banks.create');
+        Route::get('/{id}', [\App\Http\Controllers\BankController::class, 'show'])
+            ->middleware('permission:banks.show')
+            ->name('banks.show');
+        Route::patch('/{id}', [\App\Http\Controllers\BankController::class, 'update'])
+            ->middleware('permission:banks.update')
+            ->name('banks.update');
+        Route::delete('/{id}', [\App\Http\Controllers\BankController::class, 'destroy'])
+            ->middleware('permission:banks.delete')
+            ->name('banks.delete');
     });
 
     Route::get('/user-permissions', [\App\Http\Controllers\UserController::class, 'userPermissions']);

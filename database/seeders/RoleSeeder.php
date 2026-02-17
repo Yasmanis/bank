@@ -55,6 +55,13 @@ class RoleSeeder extends Seeder
                 'user_config.edit',
                 'user_config.delete'
             ],
+            'bank' => [
+                'banks.index',
+                'banks.show',
+                'banks.create',
+                'banks.edit',
+                'banks.delete'
+            ]
 
         ];
         $allPermissions = [];
@@ -94,8 +101,11 @@ class RoleSeeder extends Seeder
                 'user_config.create',
                 'user_config.edit',
                 'user_config.delete',
-                'user.index'
-
+                'user.index',
+                'banks.index',
+                'banks.show',
+                'banks.create',
+                'banks.edit'
             ],
             'user' => [
                 'list.process',
