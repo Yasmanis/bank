@@ -60,6 +60,12 @@ class UserSeeder extends Seeder
                 'name'  => 'Yasmanis Test',
                 'email' => 'yasmanis@test.com',
                 'role'  => 'user',
+            ],
+            [
+                'name'  => 'Yoan',
+                'email' => 'yoan@test.com',
+                'role'  => 'user',
+                'password' => 'yoan2026*'
             ]
         ];
 
