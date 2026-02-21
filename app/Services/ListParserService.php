@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
-    private const PAREJAS = '/^(?:(?:las\s+)?pareja[as]?|(?:del\s+)?00\s+al\s+99|00-99|^p\b)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
-
+    private const PAREJAS = '/^(?:(?:las\s+)?pare\w*|(?:del\s+)?00\s+al\s+99|00-99|^p\b)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
     private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
     private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?|(?<t_amt1>\d+)(?:\D+(?<t_amt2>\d+))?(?:\D+(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
@@ -192,7 +191,6 @@ class ListParserService
             $lowerLine = strtolower($trimmedLine);
 
             if (empty($lowerLine) || !preg_match('/\d/', $lowerLine) || str_contains($lowerLine, 'attached:')) {
-                $bets->push(new DetectedBet('error', "ND", 0, 0, 0, $trimmedLine));
                 continue;
             }
 
