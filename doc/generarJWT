@@ -1,0 +1,2 @@
+php artisan tinker
+Illuminate\Support\Str::random(64)
