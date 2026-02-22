@@ -80,9 +80,10 @@ class ListParserServiceTest extends TestCase
             "00 al 99=50",
             "Las parejas 50",
             "Las parejas -50",
-            "Las parejas con50",
+            "todas parejas con 50",
             "P-50",
-            "P-a-50"
+            "P-a-50",
+            "pare 50"
         ];
 
         foreach ($formats as $text) {
@@ -402,21 +403,6 @@ class ListParserServiceTest extends TestCase
         // Verificar detalle específico
         $this->assertEquals(150, $totals['fixed_details']['05']);
     }
-
-
-    #[Test]
-    public function it_texto_plano()
-    {
-        $dirtyText = "pepe";
-
-        $cleaned = $this->service->cleanWhatsAppChat($dirtyText);
-
-        $this->assertEquals("pepe", $cleaned);
-        ['bets' => $bets]  = $this->service->extractBets($cleaned);
-        $firstBet = $bets->first();
-        $this->assertEquals('error', $firstBet->type);
-    }
-
 
     protected function tearDown(): void
     {

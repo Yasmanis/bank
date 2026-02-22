@@ -111,7 +111,9 @@ class RoleSeeder extends Seeder
                 'list.process',
                 'list.preview',
                 'list.delete',
-                'transaction.get_balance'
+                'transaction.get_balance',
+                'daily_number.index',
+                'daily_number.show',
             ],
         ];
 

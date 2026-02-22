@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
     Route::prefix('list')->group(function () {
         Route::get('/',[\App\Http\Controllers\BankListController::class, 'index']);
         Route::get('/{id}',[\App\Http\Controllers\BankListController::class, 'show']);
