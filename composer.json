@@ -16,7 +16,9 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "spatie/laravel-activitylog": "*",
-        "spatie/laravel-permission": "*"
+        "spatie/laravel-permission": "*",
+        "symfony/css-selector": "*",
+        "symfony/dom-crawler": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

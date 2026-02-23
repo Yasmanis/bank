@@ -24,4 +24,9 @@ class UserRepository extends BaseRepository implements RepositoryInterface
             ->when($filters['name'] ?? null, fn($q, $s) => $q->where('name', $s));
     }
 
+    public function getUserByEmail(string $email)
+    {
+        return $this->query()->where('email', $email)->first();
+    }
+
 }
