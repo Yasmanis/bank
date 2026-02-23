@@ -10,7 +10,9 @@ class LotteryConsensusService
     {
         // Instanciamos los drivers
         $this->scrapers = [
-            new DirectorioCubanoScraper()
+            new LaBolitaCubanaScraper(),
+            new DirectorioCubanoScraper(),
+            new TuBoliterosScraper()
         ];
     }
 
@@ -29,9 +31,9 @@ class LotteryConsensusService
             }
         }
 
-        // Buscamos si alguna llave tiene 3 o más votos
+        // Buscamos si alguna llave tiene 2 o más votos
         foreach ($results as $key => $count) {
-            if (is_int($count) && $count >= 1) {
+            if (is_int($count) && $count >= 2) {
                 return $results[$key . '_data'];
             }
         }

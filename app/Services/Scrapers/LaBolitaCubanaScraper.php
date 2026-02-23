@@ -3,68 +3,65 @@
 namespace App\Services\Scrapers;
 
 use App\Contracts\LotteryScraperInterface;
+use Spatie\Browsershot\Browsershot;
 use Symfony\Component\DomCrawler\Crawler;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class LaBolitaCubanaScraper implements LotteryScraperInterface
 {
     protected string $url = 'https://www.labolitacubana.com/';
 
-    /**
-     * @param string $hourly 'am' o 'pm'
-     */
     public function parse(string $hourly): ?array
     {
         try {
-            // 1. Realizar la petición
-            $response = Http::timeout(15)
-                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'])
-                ->get($this->url);
+            // 1. Obtener el HTML como STRING (Asegúrate de llamar a bodyHtml() al final)
+            $html = Browsershot::url($this->url)
+                ->noSandbox()
+                ->userAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                ->waitUntilNetworkIdle()
+                ->bodyHtml();
 
-            if (!$response->successful()) return null;
-
-            $crawler = new Crawler($response->body());
-            dd($crawler);
-
-            // 2. Definir el sufijo según el horario
-            // AM -> Midday | PM -> Night
-            $suffix = ($hourly === 'am') ? 'Midday' : 'Night';
-
-            // 3. Extraer Centena y Fijo
-            // Según tu HTML: n1=6, n2=6, n3=9 => hundred=6, fixed=69
-            $h  = $crawler->filter("#number{$suffix}1")->text(null);
-            dd($h);
-            $f1 = $crawler->filter("#number{$suffix}2")->text(null);
-            $f2 = $crawler->filter("#number{$suffix}3")->text(null);
-
-            // 4. Extraer Corridos (Se forman uniendo los pares de bolas)
-            // c1=6, c2=7, c3=2, c4=3 => runner1=67, runner2=23
-            $c1 = $crawler->filter("#numberCorrido{$suffix}1")->text(null);
-            $c2 = $crawler->filter("#numberCorrido{$suffix}2")->text(null);
-            $c3 = $crawler->filter("#numberCorrido{$suffix}3")->text(null);
-            $c4 = $crawler->filter("#numberCorrido{$suffix}4")->text(null);
-
-
-
-            // 5. NUEVA VALIDACIÓN: Verificar que todos sean números
-            // Si alguno contiene '?' o no es número, devolvemos null
-            if (!is_numeric($h) || !is_numeric($f1) || !is_numeric($f2)) {
-                Log::info("LaBolitaCubanaScraper: El sorteo $hourly aún no tiene resultados (mostrando '?')");
+            // Verificación de seguridad: si por algo falló y no es un string, abortamos
+            if (!is_string($html)) {
                 return null;
             }
 
+            $crawler = new Crawler($html);
+
+            $suffix = ($hourly === 'am') ? 'Midday' : 'Night';
+
+            // Extraer Fijo
+            $h  = $this->getTextSafe($crawler, "#number{$suffix}1");
+
+            $f1 = $this->getTextSafe($crawler, "#number{$suffix}2");
+            $f2 = $this->getTextSafe($crawler, "#number{$suffix}3");
+
+            // Extraer Corridos
+            $c1 = $this->getTextSafe($crawler, "#numberCorrido{$suffix}1");
+            $c2 = $this->getTextSafe($crawler, "#numberCorrido{$suffix}2");
+            $c3 = $this->getTextSafe($crawler, "#numberCorrido{$suffix}3");
+            $c4 = $this->getTextSafe($crawler, "#numberCorrido{$suffix}4");
+
+            if (!is_numeric($h) || !is_numeric($f1) || !is_numeric($f2)) {
+                return null;
+            }
 
             return [
-                'hundred' => trim($h),
-                'fixed'   => trim($f1) . trim($f2),
-                'r1'      => trim($c1) . trim($c2),
-                'r2'      => trim($c3) . trim($c4),
+                'hundred' => $h,
+                'fixed'   => $f1 . $f2,
+                'r1'      => $c1 . $c2,
+                'r2'      => $c3 . $c4,
             ];
 
         } catch (\Exception $e) {
-            Log::warning("LaBolitaCubanaScraper falló: " . $e->getMessage());
+            Log::error("LaBolitaCubanaScraper falló: " . $e->getMessage());
             return null;
         }
+    }
+
+    private function getTextSafe(Crawler $crawler, string $selector): ?string
+    {
+        $node = $crawler->filter($selector);
+        return $node->count() > 0 ? trim($node->text()) : null;
     }
 }

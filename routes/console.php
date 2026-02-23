@@ -8,10 +8,20 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-//// Liquidar el sorteo AM a las 3:00 PM
-//Schedule::command('app:process-settlements', [now()->format('Y-m-d'), 'am'])
-//    ->dailyAt('15:00');
-//
-//// Liquidar el sorteo PM a las 10:00 PM
-//Schedule::command('app:process-settlements', [now()->format('Y-m-d'), 'pm'])
-//    ->dailyAt('22:00');
+Schedule::command('app:scrape-results am')
+    ->everyFifteenMinutes()
+    ->between('13:30', '15:00')
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        \Illuminate\Support\Facades\Log::critical("ALERTA: El bot de scraping ha fallado repetidamente para el sorteo AM.");
+    });
+
+Schedule::command('app:scrape-results am')
+    ->everyFifteenMinutes()
+    ->between('21:30', '23:00')
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        \Illuminate\Support\Facades\Log::critical("ALERTA: El bot de scraping ha fallado repetidamente para el sorteo PM.");
+    });
+
+

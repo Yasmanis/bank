@@ -128,23 +128,6 @@ class SettlementService
         return ['total' => $total, 'breakdown' => $breakdown];
     }
 
-    private function getEffectiveRates(User $user): array
-    {
-        $config = $user->userConfig ?? $user->creator->adminConfig;
-
-        if (!$config) throw new \Exception("Configuración de premios no encontrada.");
-
-        return [
-            'fixed'      => (int) $config->fixed,
-            'hundred'    => (int) $config->hundred,
-            'parlet'     => (int) $config->parlet,
-            'triplet'    => (int) $config->triplet,
-            'runner1'    => (int) $config->runner1,
-            'runner2'    => (int) $config->runner2,
-            'commission' => (float) $config->commission,
-        ];
-    }
-
     /**
      * Procesa y guarda el cierre, vinculándolo al banco.
      */

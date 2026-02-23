@@ -4,17 +4,18 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\DailyNumber;
-use App\Models\User;
+use App\Models\BankList;
+use App\Models\Settlement;
 use App\Services\SettlementService;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class ProcessSettlementsCommand extends Command
 {
-    // El comando se ejecutará como: php artisan app:process-settlements {date} {hourly}
-    protected $signature = 'app:process-settlements {date? : La fecha YYYY-MM-DD} {hourly? : am o pm}';
-    protected $description = 'Liquida automáticamente las ventas de todos los usuarios para un sorteo específico';
+    protected $signature = 'app:process-settlements {date? : YYYY-MM-DD} {hourly? : am o pm}';
+    protected $description = 'Liquida ventas agrupadas por Usuario y Banco para un sorteo específico';
 
-    protected $service;
+    protected SettlementService $service;
 
     public function __construct(SettlementService $service)
     {
@@ -24,50 +25,68 @@ class ProcessSettlementsCommand extends Command
 
     public function handle()
     {
-        // 1. Obtener parámetros o usar el tiempo actual
         $date = $this->argument('date') ?? now()->format('Y-m-d');
         $hourly = $this->argument('hourly') ?? (now()->hour < 15 ? 'am' : 'pm');
 
-        $this->info("Iniciando liquidación para: $date ($hourly)");
+        $this->info("Iniciando liquidación masiva: $date ($hourly)");
 
-        // 2. Verificar si ya existe el número ganador
-        $win = DailyNumber::where('date', $date)->where('hourly', $hourly)->first();
+        // 1. Verificar si existe el número ganador
+        $win = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
         if (!$win) {
-            $this->error("No se puede liquidar: Falta registrar el número ganador.");
-            return Command::FAILURE;
+            $this->error("Abortado: No existe número ganador para este turno.");
+            return CommandAlias::FAILURE;
         }
 
-        // 3. Buscar usuarios con rol 'user' que tengan listas en ese turno
-        // y que aún NO hayan sido liquidados
-        $users = User::role('user')
-            ->whereHas('bankLists', function($q) use ($date, $hourly) {
-                $q->whereDate('created_at', $date)->where('hourly', $hourly);
-            })
-            ->whereDoesntHave('settlements', function($q) use ($date, $hourly) {
-                $q->where('date', $date)->where('hourly', $hourly);
-            })
+        // 2. Identificar pares (Usuario + Banco) que tienen ventas validadas
+        // Buscamos en bank_lists combinaciones únicas de user_id y bank_id
+        $pendingRecords = BankList::query()
+            ->whereDate('created_at', $date)
+            ->where('hourly', $hourly)
+            ->whereNotNull('bank_id')
+            ->select('user_id', 'bank_id')
+            ->distinct()
+            ->with(['user', 'bank'])
             ->get();
 
-        if ($users->isEmpty()) {
-            $this->info("No hay usuarios pendientes de liquidación para este turno.");
-            return Command::SUCCESS;
+        if ($pendingRecords->isEmpty()) {
+            $this->info("No hay ventas pendientes de liquidación.");
+            return CommandAlias::SUCCESS;
         }
 
-        $bar = $this->output->createProgressBar($users->count());
-        $bar->start();
+        $processedCount = 0;
+        $this->info("Se encontraron " . $pendingRecords->count() . " grupos para liquidar.");
 
-        foreach ($users as $user) {
+        foreach ($pendingRecords as $record) {
+            // 3. Verificar si ya existe una liquidación para este Usuario + Banco + Fecha + Hora
+            $alreadySettled = Settlement::where('user_id', $record->user_id)
+                ->where('bank_id', $record->bank_id)
+                ->whereDate('date', $date)
+                ->where('hourly', $hourly)
+                ->exists();
+
+            if ($alreadySettled) {
+                continue;
+            }
+
             try {
-                $this->service->processSettlement($user->id, $date, $hourly);
-                $bar->advance();
+                // 4. Ejecutar la liquidación a través del servicio
+                $this->service->processSettlement(
+                    $record->user_id,
+                    $record->bank_id,
+                    $date,
+                    $hourly
+                );
+
+                $this->line("<info>✔</info> Liquidado: {$record->user->name} en {$record->bank->name}");
+                $processedCount++;
+
             } catch (\Throwable $e) {
-                Log::error("Error liquidando usuario {$user->id}: " . $e->getMessage());
-                $this->error("\nError en usuario {$user->name}: " . $e->getMessage());
+                Log::error("Fallo liquidación (U:{$record->user_id} B:{$record->bank_id}): " . $e->getMessage());
+                $this->error("✘ Error liquidando a {$record->user->name}: " . $e->getMessage());
             }
         }
 
-        $bar->finish();
-        $this->info("\nLiquidación completada exitosamente.");
-        return Command::SUCCESS;
+        $this->info("\nProceso finalizado. Total liquidados: $processedCount");
+        return CommandAlias::SUCCESS;
     }
 }

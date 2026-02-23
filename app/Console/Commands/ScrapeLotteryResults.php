@@ -5,43 +5,65 @@ namespace App\Console\Commands;
 use App\Services\Scrapers\LotteryConsensusService;
 use Illuminate\Console\Command;
 use App\Models\DailyNumber;
-use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class ScrapeLotteryResults extends Command
 {
     protected $signature = 'app:scrape-results {hourly=am}';
-    protected $description = 'Obtiene los números ganadores desde la web oficial';
+    protected $description = 'Obtiene los números ganadores desde la web oficial mediante consenso';
 
     public function handle(LotteryConsensusService $consensus)
     {
-        $this->info("Consultando fuentes para consenso...");
+        $date = now()->format('Y-m-d');
+        $hourly = $this->argument('hourly');
 
-        $winner = $consensus->getConsensusResult($this->argument('hourly'));
+        $exists = DailyNumber::whereDate('date', $date)
+            ->where('hourly', $hourly)
+            ->exists();
+
+        if ($exists) {
+            $this->comment("El número ganador para {$date} ({$hourly}) ya se encuentra registrado. Saltando scraping...");
+            return CommandAlias::SUCCESS;
+        }
+
+        $this->info("Consultando fuentes para consenso para: {$date} ({$hourly})...");
+
+        // 2. Ejecutar el scraping solo si no existe el dato
+        $winner = $consensus->getConsensusResult($hourly);
 
         if (!$winner) {
-            // Alerta: Las fuentes no coinciden, se requiere intervención humana
-            Log::critical("FALLO DE CONSENSO: Las fuentes de lotería devuelven números distintos.");
+            // Alerta: Las fuentes no coinciden o no hay resultados aún
+            $this->error("Fallo de consenso: Las fuentes no coinciden o no han publicado el resultado.");
+            Log::warning("FALLO DE CONSENSO: No se pudo determinar el ganador automáticamente para {$date} ({$hourly}).");
             return CommandAlias::FAILURE;
         }
 
-
-        // Si hay consenso, guardamos
+        // 3. Guardar el resultado (usamos updateOrCreate por seguridad, aunque ya validamos que no existe)
         $daily = DailyNumber::updateOrCreate(
-            ['date' => now()->format('Y-m-d'), 'hourly' => $this->argument('hourly')],
+            ['date' => $date, 'hourly' => $hourly],
             [
-                'hundred' => $winner['hundred'],
-                'fixed'   => $winner['fixed'],
-                'runner1' => $winner['r1'],
-                'runner2' => $winner['r2'],
-                'created_by' => 1
+                'hundred'    => $winner['hundred'],
+                'fixed'      => $winner['fixed'],
+                'runner1'    => $winner['r1'],
+                'runner2'    => $winner['r2'],
+                'created_by' => 1 // ID del sistema/admin
             ]
         );
 
-        $this->info("Éxito: Consenso logrado para el número {$winner['hundred']}{$winner['fixed']}");
+        $this->info("Éxito: Consenso logrado para el número {$winner['hundred']}-{$winner['fixed']}");
 
+        $this->info("Iniciando liquidación automática para todos los usuarios...");
+
+        // Ejecutamos el comando de liquidación pasando la fecha y el horario
+        $this->call('app:process-settlements', [
+            'date' => $date,
+            'hourly' => $hourly
+        ]);
+
+        $this->info("Liquidación finalizada.");
 
         return CommandAlias::SUCCESS;
+
     }
 }
