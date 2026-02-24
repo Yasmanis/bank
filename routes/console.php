@@ -8,6 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Schedule::command('app:cleanup-lists')->dailyAt('03:00');
+
 Schedule::command('app:scrape-results am')
     ->everyFifteenMinutes()
     ->between('13:30', '15:00')
@@ -23,5 +25,3 @@ Schedule::command('app:scrape-results am')
     ->onFailure(function () {
         \Illuminate\Support\Facades\Log::critical("ALERTA: El bot de scraping ha fallado repetidamente para el sorteo PM.");
     });
-
-
