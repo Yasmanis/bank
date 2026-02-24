@@ -166,6 +166,11 @@ class ListParserService
                 throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
             }
 
+            $validBets = $bets->where('type', '!=', 'error');
+            if ($validBets->isEmpty()) {
+                throw new \Exception("La lista no contiene ninguna jugada válida (Ej: 25-10).");
+            }
+
             $processedData = $this->calculateTotals($bets);
             return $this->repository->store([
                 'user_id' => $user->id,

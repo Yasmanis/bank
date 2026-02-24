@@ -96,16 +96,6 @@ class BankListController extends Controller
         $request->validate([
             'text' => 'required|string'
         ]);
-        $userAgent = $request->userAgent();
-        $source = str_contains($userAgent, 'Postman') ? 'Postman' : 'Web Frontend';
-        activity()
-            ->causedBy(auth()->user())
-            ->withProperties([
-                'source' => $source,
-                'agent' => $userAgent,
-                'route' => $request->route()->getName()
-            ])
-            ->log($request->text);
         try {
             $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($request->text);
             $extraction  = $this->listService->extractBets($cleanedWhatsAppText);
@@ -114,6 +104,10 @@ class BankListController extends Controller
             $errorLines = $bets->where('type', 'error')->pluck('originalLine');
             if ($errorLines->isNotEmpty()) {
                 throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
+            }
+            $validBets = $bets->where('type', '!=', 'error');
+            if ($validBets->isEmpty()) {
+                throw new \Exception("La lista no contiene ninguna jugada válida (Ej: 25-10).");
             }
             $data = $this->listService->calculateTotals($bets, $fullText);
             return $this->success($data);
