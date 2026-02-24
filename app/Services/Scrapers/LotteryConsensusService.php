@@ -10,7 +10,7 @@ class LotteryConsensusService
     {
         // Instanciamos los drivers
         $this->scrapers = [
-            new LaBolitaCubanaScraper(),
+//            new LaBolitaCubanaScraper(),
             new DirectorioCubanoScraper(),
             new TuBoliterosScraper()
         ];
