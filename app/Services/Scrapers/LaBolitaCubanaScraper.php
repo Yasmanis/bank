@@ -16,8 +16,8 @@ class LaBolitaCubanaScraper implements LotteryScraperInterface
         try {
             // 1. Obtener el HTML como STRING (Asegúrate de llamar a bodyHtml() al final)
             $html = Browsershot::url($this->url)
-                ->setNodeBinary('/usr/bin/node')
-                ->setNpmBinary('/usr/bin/npm')
+                ->setNodeBinary(config('browsershot.node_path'))
+                ->setNpmBinary(config('browsershot.npm_path'))
                 ->noSandbox()
                 ->userAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
                 ->waitUntilNetworkIdle()
