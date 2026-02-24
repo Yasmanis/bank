@@ -195,7 +195,14 @@ class ListParserService
             $trimmedLine = trim($line);
             $lowerLine = strtolower($trimmedLine);
 
+            // 1. FILTRAR BASURA TÉCNICA
             if (empty($lowerLine) || !preg_match('/\d/', $lowerLine) || str_contains($lowerLine, 'attached:')) {
+                $headers = ['corrido', 'centena', 'parlet', 'triplet', 'tripleta'];
+                if (in_array($lowerLine, $headers)) continue;
+                continue;
+            }
+            // 2. NUEVO: SALTAR PLANTILLAS VACÍAS (Ej: "01-", "40=", "99- ")
+            if (preg_match('/^\d{1,3}\D+\s*$/', $trimmedLine)) {
                 continue;
             }
 
