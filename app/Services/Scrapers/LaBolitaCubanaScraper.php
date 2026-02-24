@@ -21,6 +21,8 @@ class LaBolitaCubanaScraper implements LotteryScraperInterface
                 ->waitUntilNetworkIdle()
                 ->bodyHtml();
 
+            dump($html);
+
             // Verificación de seguridad: si por algo falló y no es un string, abortamos
             if (!is_string($html)) {
                 return null;
