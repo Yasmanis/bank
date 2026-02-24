@@ -138,7 +138,7 @@ class ListParserServiceTest extends TestCase
             "5x7 20",      // Números de 1 cifra (debe ser 05x07)
             "70x38=15",    // Al revés y con igual (debe ser 38x70)
             "01x02_10",    // Con guion bajo
-            "01x02 Xon 10", // Con palabra "con"
+            "01x02 con 10", // Con palabra "con"
             "20×23-100" // Con signo ×
         ];
 

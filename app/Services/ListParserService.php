@@ -9,13 +9,23 @@ use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
-    private const PAREJAS = '/^(?:(?:todas?\s+)?(?:las\s+)?pare\w*|(?:del\s+)?00\s+al\s+99|00-99|^p\b)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
-    private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
+    /**
+     * El SEPARADOR (SEP) ahora permite:
+     * 1. Símbolos: - = _ . : / * × >
+     * 2. Palabras conectoras: "con", "a", "pesos", "peso"
+     * 3. Espacios en blanco
+     */
+    private const SEP = '(?:\s*[-=_.:\/*×>a]|\s+con\s+|\s+pesos?\s+|\s+)+';
 
-    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)\D+(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?|(?<t_amt1>\d+)(?:\D+(?<t_amt2>\d+))?(?:\D+(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
+    private const PAREJAS = '/^(?:(?:todas?\s+)?(?:las\s+)?pare\w*|(?:del\s+)?00\s+al\s+99|00-99|^p\b)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
 
-    private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})\D+(?<amt>\d+)$/iu';
-    private const NORMAL = '/^(?:t|p)?\s?(?<list>\d{1,3}(?:[,\.]\d{1,3})*)\D+(?<amt>\d+)(?:\D+(?<c1>\d+))?(?:\D+(?<c2>\d+))?$/iu';
+    private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)'.self::SEP.'(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
+
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
+
+    private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})'.self::SEP.'(?<amt>\d+)$/iu';
+
+    private const NORMAL = '/^(?:t|p)?\s?(?<list>\d{1,3}(?:[,\.]\d{1,3})*)'.self::SEP.'(?<amt>\d+)(?:'.self::SEP.'(?<c1>\d+))?(?:'.self::SEP.'(?<c2>\d+))?$/iu';
 
     protected BankListRepository $repository;
 
