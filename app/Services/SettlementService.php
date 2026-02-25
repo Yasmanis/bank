@@ -56,78 +56,6 @@ class SettlementService
         );
     }
 
-    private function calculateTotalPrizes(Collection $lists, DailyNumber $win, array $rates): array
-    {
-        $total = 0;
-        $breakdown = ['fixed' => 0, 'hundred' => 0, 'parlet' => 0, 'triplet' => 0, 'runners' => 0];
-
-        // Definimos los números ganadores para comparar
-        $winF = $win->fixed;
-        $winH = $win->hundred . $win->fixed; // Centena completa (ej: 1 + 50 = 150)
-        $winR1 = $win->runner1;
-        $winR2 = $win->runner2;
-
-        // El pool de ganadores para Parlets y Tripletas
-        $winPool = [$winF, $winR1, $winR2];
-
-        foreach ($lists as $list) {
-            $bets = $list->processed_text['bets'] ?? [];
-
-            foreach ($bets as $bet) {
-                // 1. Verificar Fijos (fixed)
-                if ($bet['type'] === 'fixed' && $bet['number'] === $winF) {
-                    $gain = $bet['amount'] * $rates['fixed'];
-                    $total += $gain;
-                    $breakdown['fixed'] += $gain;
-                }
-
-                // 2. Verificar Centenas (hundred)
-                if ($bet['type'] === 'hundred' && $bet['number'] === $winH) {
-                    $gain = $bet['amount'] * $rates['hundred'];
-                    $total += $gain;
-                    $breakdown['hundred'] += $gain;
-                }
-
-                // 3. Verificar Tripletas (triplet)
-                // Usan su propio multiplicador especial
-                if ($bet['type'] === 'triplet' && $bet['number'] === $winF) {
-                    $gain = $bet['amount'] * $rates['triplet'];
-                    $total += $gain;
-                    $breakdown['triplet'] += $gain;
-                }
-
-                // 4. Verificar Corridos (runners)
-                // Los corridos pueden venir en apuestas 'fixed' o 'triplet'
-                if (in_array($bet['type'], ['fixed', 'triplet'])) {
-                    if ($bet['number'] === $winR1 && $bet['runner1'] > 0) {
-                        $gain = $bet['runner1'] * $rates['runner1'];
-                        $total += $gain;
-                        $breakdown['runners'] += $gain;
-                    }
-                    if ($bet['number'] === $winR2 && $bet['runner2'] > 0) {
-                        $gain = $bet['runner2'] * $rates['runner2'];
-                        $total += $gain;
-                        $breakdown['runners'] += $gain;
-                    }
-                }
-
-                // 5. Verificar Parlets
-                if ($bet['type'] === 'parlet') {
-                    // El número del parlet es "05x10". Lo separamos.
-                    $pair = explode('x', $bet['number']);
-                    // Gana si AMBOS números están en el pool (Fijo, C1, C2)
-                    if (in_array($pair[0], $winPool) && in_array($pair[1], $winPool)) {
-                        $gain = $bet['amount'] * $rates['parlet'];
-                        $total += $gain;
-                        $breakdown['parlet'] += $gain;
-                    }
-                }
-            }
-        }
-
-        return ['total' => $total, 'breakdown' => $breakdown];
-    }
-
     /**
      * Procesa y guarda el cierre, vinculándolo al banco.
      */
@@ -172,5 +100,87 @@ class SettlementService
 
             return $settlement;
         });
+    }
+
+    public function calculatePrizesFromBets(Collection $bets, DailyNumber $win, array $rates): array
+    {
+        $total = 0;
+        $breakdown = ['fixed' => 0, 'hundred' => 0, 'parlet' => 0, 'triplet' => 0, 'runners' => 0];
+
+        $winF = $win->fixed;
+        $winH = $win->hundred . $win->fixed;
+        $winR1 = $win->runner1;
+        $winR2 = $win->runner2;
+        $winPool = [$winF, $winR1, $winR2];
+
+        foreach ($bets as $bet) {
+            // Convertimos a array si es un objeto DTO para asegurar compatibilidad
+            $bet = is_object($bet) ? (array) $bet : $bet;
+
+            // 1. Fijos
+            if ($bet['type'] === 'fixed' && $bet['number'] === $winF) {
+                $gain = $bet['amount'] * $rates['fixed'];
+                $total += $gain;
+                $breakdown['fixed'] += $gain;
+            }
+
+            // 2. Centenas
+            if ($bet['type'] === 'hundred' && $bet['number'] === $winH) {
+                $gain = $bet['amount'] * $rates['hundred'];
+                $total += $gain;
+                $breakdown['hundred'] += $gain;
+            }
+
+            // 3. Tripletas
+            if ($bet['type'] === 'triplet' && $bet['number'] === $winF) {
+                $gain = $bet['amount'] * $rates['triplet'];
+                $total += $gain;
+                $breakdown['triplet'] += $gain;
+            }
+
+            // 4. Corridos
+            if (in_array($bet['type'], ['fixed', 'triplet'])) {
+                if ($bet['number'] === $winR1 && ($bet['runner1'] ?? 0) > 0) {
+                    $gain = $bet['runner1'] * $rates['runner1'];
+                    $total += $gain;
+                    $breakdown['runners'] += $gain;
+                }
+                if ($bet['number'] === $winR2 && ($bet['runner2'] ?? 0) > 0) {
+                    $gain = $bet['runner2'] * $rates['runner2'];
+                    $total += $gain;
+                    $breakdown['runners'] += $gain;
+                }
+            }
+
+            // 5. Parlets
+            if ($bet['type'] === 'parlet') {
+                $pair = explode('x', $bet['number']);
+                if (in_array($pair[0], $winPool) && in_array($pair[1], $winPool)) {
+                    $gain = $bet['amount'] * $rates['parlet'];
+                    $total += $gain;
+                    $breakdown['parlet'] += $gain;
+                }
+            }
+        }
+
+        return ['total' => $total, 'breakdown' => $breakdown];
+    }
+
+    private function calculateTotalPrizes(Collection $lists, DailyNumber $win, array $rates): array
+    {
+        // Extraemos todas las apuestas de todas las listas en una sola colección plana
+        $allBets = $lists->flatMap(function ($list) {
+            return $list->processed_text['bets'] ?? [];
+        });
+
+        return $this->calculatePrizesFromBets($allBets, $win, $rates);
+    }
+
+    /**
+     * El método de preview ahora llama al core directamente
+     */
+    public function calculateFromBets(Collection $bets, DailyNumber $win, array $rates): array
+    {
+        return $this->calculatePrizesFromBets($bets, $win, $rates);
     }
 }

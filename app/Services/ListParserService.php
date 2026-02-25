@@ -15,12 +15,13 @@ class ListParserService
      * 2. Palabras conectoras: "con", "a", "pesos", "peso"
      * 3. Espacios en blanco
      */
-    private const SEP = '(?:\s*[-=_.:\/*×>a]|\s+con\s+|\s+pesos?\s+|\s+)+';
+    private const SEP = '(?:\s|[-=_.:\/*×>a]|con\b|pesos?\b)+';
 
     private const PAREJAS = '/^(?:(?:todas?\s+)?(?:las\s+)?pare\w*|(?:del\s+)?00\s+al\s+99|00-99|^p\b)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
 
     private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)'.self::SEP.'(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
+    private const RANGOS = '/^(?:del\s+)?(?<start>\d{1,2})\s+al\s+(?<end>\d{1,2})'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
     private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
 
     private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})'.self::SEP.'(?<amt>\d+)$/iu';
@@ -252,6 +253,23 @@ class ListParserService
                 }
                 $matched = true;
             }
+            // --- 5. RANGOS LINEALES (del 01 al 10) ---
+            elseif (preg_match(self::RANGOS, $lowerLine, $m)) {
+                $start = (int)$m['start'];
+                $end = (int)$m['end'];
+                $amt = (int)($m['amt1'] ?? 0);
+                $c1  = (int)($m['amt2'] ?? 0);
+                $c2  = (int)($m['amt3'] ?? 0);
+
+                if ($start < $end && ($end - $start) <= 20) {
+                    for ($i = $start; $i <= $end; $i++) {
+                        $num = str_pad($i, 2, '0', STR_PAD_LEFT);
+                        $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : 'fixed';
+                        $bets->push(new DetectedBet($type, $num, $amt, $c1, $c2, $trimmedLine));
+                    }
+                    $matched = true;
+                }
+            }
             // 4. LÍNEAS
             elseif (preg_match(self::LINEAS, $lowerLine, $m)) {
                 $decade = ($m['dec1'] ?? '') ?: ($m['dec2'] ?? '') ?: ($m['dec3'] ?? '') ?: ($m['dec4'] ?? '');
@@ -273,12 +291,12 @@ class ListParserService
                 $c2  = (int)($m['c2'] ?? 0);
 
                 $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : null;
-
                 foreach ($numbers as $rawNum) {
                     $cleanNum = trim($rawNum);
                     if ($cleanNum === '') continue;
                     $num = str_pad($cleanNum, (strlen($cleanNum) > 2 ? 3 : 2), '0', STR_PAD_LEFT);
-                    $finalType = $type ?: (strlen($num) === 3 ? 'hundred' : 'fixed');
+                    $isThreeDigits = strlen($num) === 3;
+                    $finalType = ($type === 'triplet' && !$isThreeDigits) ? 'triplet' : ($isThreeDigits ? 'hundred' : 'fixed');
                     $bets->push(new DetectedBet($finalType, $num, $amt, $c1, $c2, $trimmedLine));
                 }
                 $matched = true;

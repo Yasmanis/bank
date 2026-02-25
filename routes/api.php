@@ -6,6 +6,7 @@ Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
+    Route::get('/check-time', fn() => now()->toDateTimeString());
     Route::prefix('list')->group(function () {
         Route::get('/',[\App\Http\Controllers\BankListController::class, 'index']);
         Route::get('/{id}',[\App\Http\Controllers\BankListController::class, 'show']);

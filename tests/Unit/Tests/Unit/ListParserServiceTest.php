@@ -113,7 +113,8 @@ class ListParserServiceTest extends TestCase
             "07 al 97-100",
             "Los terminales 7-100",
             "T7-100",
-            "T-7-100"
+            "T-7-100",
+            "Terminal 7con 100"
         ];
 
         foreach ($formats as $text) {
@@ -200,7 +201,9 @@ class ListParserServiceTest extends TestCase
             "38*30",
             "20*20_5_5",
             "20×23",
-            "10,25,30-5"
+            "10,25,30-5",
+            "04con 40",
+            "Del 01 al 10 con 100"
         ];
 
         // 1. Caso completo: 33-100-20-10
@@ -272,6 +275,30 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals('30', $bets[2]->number);
         $this->assertEquals(5, $bets[2]->amount);
 
+        //04con 40
+        ['bets' => $bets]  = $this->service->extractBets($formats[11]);
+        $this->assertEquals('fixed', $bets[0]->type);
+        $this->assertEquals('04', $bets[0]->number);
+        $this->assertEquals(40, $bets[0]->amount);
+
+    }
+
+    /** @test */
+    public function it_extracts_linear_ranges_correctly_without_confusing_with_terminales()
+    {
+        $text = "Del 01 al 10 con 100";
+        ['bets' => $bets] = $this->service->extractBets($text);
+
+        // Debe generar 10 apuestas: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
+        $this->assertCount(10, $bets);
+
+        $this->assertEquals('01', $bets->first()->number);
+        $this->assertEquals('10', $bets->last()->number);
+
+        // Verificamos un número intermedio para asegurar que es lineal y no terminal
+        // (Si fuera terminal, el segundo número sería 11, pero aquí debe ser 02)
+        $this->assertEquals('02', $bets->get(1)->number);
+        $this->assertEquals(100, $bets->first()->amount);
     }
 
     #[Test]

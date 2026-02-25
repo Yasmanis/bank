@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Dto\BankList\BankListFullResponseDto;
 use App\Dto\BankList\BankListPartialResponseDto;
 use App\Http\Requests\BankListIndexRequest;
+use App\Http\Requests\BankListPreviewRequest;
 use App\Http\Requests\ProcessListRequest;
 use App\Http\Requests\ValidateListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
 use App\Services\ListParserService;
+use App\Services\SettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -17,11 +19,13 @@ class BankListController extends Controller
 {
     protected ListParserService $listService;
     protected BankListRepository $repository;
+    protected SettlementService $settlementService;
 
-    public function __construct(ListParserService $listService,BankListRepository $repository)
+    public function __construct(ListParserService $listService, BankListRepository $repository, SettlementService $settlementService)
     {
         $this->listService = $listService;
         $this->repository = $repository;
+        $this->settlementService = $settlementService;
     }
 
     public function index(BankListIndexRequest $request)
@@ -32,7 +36,7 @@ class BankListController extends Controller
 
             $paginator = $this->repository->getPaginatedByUser($filters, auth()->id(), $perPage);
             $paginator->appends($request->query());
-            $paginator->through(fn ($model) => BankListPartialResponseDto::fromModel($model));
+            $paginator->through(fn($model) => BankListPartialResponseDto::fromModel($model));
             $groupedItems = $paginator->getCollection()
                 ->groupBy(function ($item) {
                     return \Carbon\Carbon::parse($item->created_at_raw)->format('Y-m-d');
@@ -91,35 +95,71 @@ class BankListController extends Controller
     }
 
 
-    public function preview(Request $request)
+    /**
+     * Previsualizar procesamiento de lista.
+     *
+     * Permite ver el desglose de una lista antes de guardarla.
+     * Si se proporciona fecha y horario, también calcula los premios contra el resultado de ese sorteo.
+     */
+    public function preview(BankListPreviewRequest $request)
     {
-        $request->validate([
-            'text' => 'required|string'
-        ]);
+        $params = $request->validated();
+
         try {
-            $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($request->text);
-            $extraction  = $this->listService->extractBets($cleanedWhatsAppText);
+            $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($params['text']);
+            $extraction = $this->listService->extractBets($cleanedWhatsAppText);
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
+
+            // Validaciones de errores técnicos
             $errorLines = $bets->where('type', 'error')->pluck('originalLine');
             if ($errorLines->isNotEmpty()) {
                 throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
             }
-            $validBets = $bets->where('type', '!=', 'error');
-            if ($validBets->isEmpty()) {
-                throw new \Exception("La lista no contiene ninguna jugada válida (Ej: 25-10).");
+
+            if ($bets->where('type', '!=', 'error')->isEmpty()) {
+                throw new \Exception("La lista no contiene ninguna jugada válida.");
             }
+
+            // 1. Totales de venta
             $data = $this->listService->calculateTotals($bets, $fullText);
+
+            $searchDateAndHourly = $this->getSearchDateAndHourly($request, $params);
+            $searchHourly = $searchDateAndHourly['searchHourly'];
+            $searchDate = $searchDateAndHourly['searchDate'];
+
+
+            if ($searchHourly) {
+                $win = \App\Models\DailyNumber::whereDate('date', $searchDate)
+                    ->where('hourly', $searchHourly)
+                    ->first();
+
+                if ($win) {
+                    $rates = auth()->user()->getEffectiveRates();
+                    $prizesData = $this->settlementService->calculateFromBets($bets, $win, $rates);
+
+                    $data['prizes_preview'] = [
+                        'found' => true,
+                        'total_prizes' => $prizesData['total'],
+                        'breakdown' => $prizesData['breakdown'],
+                        'winning_number' => "{$win->hundred}-{$win->fixed}",
+                        'draw_date' => $win->date->format('d/m/Y'),
+                        'draw_hourly' => strtoupper($win->hourly)
+                    ];
+                } else {
+                    $data['prizes_preview'] = [
+                        'found' => false,
+                        'message' => "No hay resultados registrados para el {$searchDate} ({$searchHourly})."
+                    ];
+                }
+            }
+
             return $this->success($data);
+
         } catch (\App\Exceptions\UnprocessedLinesException $e) {
-            return $this->error(
-                'Existe parte de la lista que no pudieron ser procesadas. Por favor revise',
-                422,
-                ['not_processed' => $e->getLines()]
-            );
-        }
-        catch (\Throwable $th) {
-            return $this->error('No se pudo previsualizar', 422, $th->getMessage());
+            return $this->error('Líneas con errores', 422, ['not_processed' => $e->getLines()]);
+        } catch (\Throwable $th) {
+            return $this->error($th->getMessage(), 422);
         }
     }
 
@@ -148,8 +188,8 @@ class BankListController extends Controller
                 'updated_by' => auth()->id(),
                 'approved_by' => $approvedBy
             ];
-            $bankListRepository->update($data,$id);
-            return $this->success(['id' => $id],'Validación de lista ejecutada correctamente');
+            $bankListRepository->update($data, $id);
+            return $this->success(['id' => $id], 'Validación de lista ejecutada correctamente');
         } catch (\Throwable $th) {
             return $this->error('No es posible la validación', 422, $th->getMessage());
         }
@@ -170,6 +210,40 @@ class BankListController extends Controller
         } catch (\Throwable $th) {
             return $this->error('Error al intentar eliminar', 422, $th->getMessage());
         }
+    }
+
+    private function getSearchDateAndHourly(BankListPreviewRequest $request, mixed $params)
+    {
+        $now = now(); // Carbon instance
+        $currentTime = $now->format('H:i');
+        if ($request->filled('hourly')) {
+            // Si el usuario eligió uno manualmente, respetamos su elección
+            $searchHourly = $params['hourly'];
+        } else {
+            // Entre la 1:00 PM (13:00) y las 9:30 PM (21:30) -> Sugerimos AM
+            if ($currentTime >= '13:00' && $currentTime <= '21:30') {
+                $searchHourly = 'am';
+            } else {
+                // Desde las 9:31 PM hasta las 12:59 PM del día siguiente -> Sugerimos PM
+                $searchHourly = 'pm';
+            }
+        }
+
+        // 3. Determinar fecha (Si es PM y estamos en la madrugada, quizás busca el PM de ayer)
+        $searchDate = $params['date'] ?? now()->format('Y-m-d');
+
+        // Ajuste extra de usabilidad:
+        // Si son las 2:00 AM y el sistema sugiere 'pm', probablemente el usuario
+        // busca el resultado de la noche de AYER, no de hoy (que aún no ha salido).
+        if (!$request->filled('date') && $searchHourly === 'pm' && $currentTime < '13:00') {
+            $searchDate = now()->subDay()->format('Y-m-d');
+        }
+
+        return [
+            'searchDate' => $searchDate,
+            'searchHourly' => $searchHourly
+        ];
+
     }
 
 }
