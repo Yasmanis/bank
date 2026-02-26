@@ -40,7 +40,7 @@ class ScrapeLotteryResults extends Command
         }
 
         // 3. Guardar el resultado (usamos updateOrCreate por seguridad, aunque ya validamos que no existe)
-        $daily = DailyNumber::updateOrCreate(
+       DailyNumber::updateOrCreate(
             ['date' => $date, 'hourly' => $hourly],
             [
                 'hundred'    => $winner['hundred'],
@@ -52,16 +52,6 @@ class ScrapeLotteryResults extends Command
         );
 
         $this->info("Éxito: Consenso logrado para el número {$winner['hundred']}-{$winner['fixed']}");
-
-        $this->info("Iniciando liquidación automática para todos los usuarios...");
-
-        // Ejecutamos el comando de liquidación pasando la fecha y el horario
-        $this->call('app:process-settlements', [
-            'date' => $date,
-            'hourly' => $hourly
-        ]);
-
-        $this->info("Liquidación finalizada.");
 
         return CommandAlias::SUCCESS;
 

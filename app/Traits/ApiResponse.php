@@ -25,9 +25,6 @@ trait ApiResponse
      */
     public function error(string $message = 'Error interno', int $code = 400, $errors = null): JsonResponse
     {
-        if ($errors){
-            Log::error($message, ['errors' => $errors]);
-        }
         return response()->json([
             'success' => false,
             'message' => $message,

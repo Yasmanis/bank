@@ -81,7 +81,6 @@ class ProcessSettlementsCommand extends Command
                 $processedCount++;
 
             } catch (\Throwable $e) {
-                Log::error("Fallo liquidación (U:{$record->user_id} B:{$record->bank_id}): " . $e->getMessage());
                 $this->error("✘ Error liquidando a {$record->user->name}: " . $e->getMessage());
             }
         }
