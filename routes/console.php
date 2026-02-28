@@ -11,16 +11,16 @@ Artisan::command('inspire', function () {
 Schedule::command('app:cleanup-lists')->dailyAt('03:00');
 
 Schedule::command('app:scrape-results am')
-    ->everyFiveMinutes()
+    ->everyFifteenMinutes()
     ->between('13:30', '21:00')
     ->withoutOverlapping()
     ->onFailure(function () {
         \Illuminate\Support\Facades\Log::critical("ALERTA: El bot de scraping ha fallado repetidamente para el sorteo AM.");
     });
 
-Schedule::command('app:scrape-results am')
-    ->everyFiveMinutes()
-    ->between('21:30', '23:00')
+Schedule::command('app:scrape-results pm')
+    ->everyFifteenMinutes()
+    ->between('21:30', '09:00')
     ->withoutOverlapping()
     ->onFailure(function () {
         \Illuminate\Support\Facades\Log::critical("ALERTA: El bot de scraping ha fallado repetidamente para el sorteo PM.");
