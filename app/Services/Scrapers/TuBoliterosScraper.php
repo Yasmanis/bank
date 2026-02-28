@@ -35,6 +35,15 @@ class TuBoliterosScraper implements LotteryScraperInterface
                 return null;
             }
 
+            // Buscamos el <p> que contiene la fecha (es el último <p> del bloque de la izquierda)
+            $fechaWeb = $card->filter('div:first-child p')->last()->text('');
+            $hoyFormatoWeb = now()->format('n/j/Y'); // Formato 2/23/2026 (sin ceros iniciales)
+
+            if (trim($fechaWeb) !== $hoyFormatoWeb) {
+                Log::info("TuBoliterosScraper: La fecha de la web ($fechaWeb) no es la de hoy ($hoyFormatoWeb)");
+                return null;
+            }
+
             // 3. Extraer Pick 3 (Fijo y Centena)
             // Buscamos el div que está justo después de la imagen con alt="pick3-logo"
             $pick3Raw = $card->filter("img[alt='pick3-logo'] + div")->text(null);

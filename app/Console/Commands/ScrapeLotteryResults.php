@@ -10,13 +10,17 @@ use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class ScrapeLotteryResults extends Command
 {
-    protected $signature = 'app:scrape-results {hourly=am}';
+    protected $signature = 'app:scrape-results {hourly=am} {date? : La fecha opcional YYYY-MM-DD}';
     protected $description = 'Obtiene los números ganadores desde la web oficial mediante consenso';
 
     public function handle(LotteryConsensusService $consensus)
     {
-        $date = now()->format('Y-m-d');
         $hourly = $this->argument('hourly');
+        $date = $this->argument('date') ?? (
+        ($hourly === 'pm' && now()->hour < 10)
+            ? now()->subDay()->format('Y-m-d')
+            : now()->format('Y-m-d')
+        );
 
         $exists = DailyNumber::whereDate('date', $date)
             ->where('hourly', $hourly)
@@ -40,13 +44,13 @@ class ScrapeLotteryResults extends Command
         }
 
         // 3. Guardar el resultado (usamos updateOrCreate por seguridad, aunque ya validamos que no existe)
-       DailyNumber::updateOrCreate(
+        DailyNumber::updateOrCreate(
             ['date' => $date, 'hourly' => $hourly],
             [
-                'hundred'    => $winner['hundred'],
-                'fixed'      => $winner['fixed'],
-                'runner1'    => $winner['r1'],
-                'runner2'    => $winner['r2'],
+                'hundred' => $winner['hundred'],
+                'fixed' => $winner['fixed'],
+                'runner1' => $winner['r1'],
+                'runner2' => $winner['r2'],
                 'created_by' => 1 // ID del sistema/admin
             ]
         );

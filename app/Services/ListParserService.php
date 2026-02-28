@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Dto\Bet\DetectedBet;
 use App\Repositories\BankList\BankListRepository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ListParserService
 {
@@ -29,10 +28,12 @@ class ListParserService
     private const NORMAL = '/^(?:t|p)?\s?(?<list>\d{1,3}(?:[,\.]\d{1,3})*)'.self::SEP.'(?<amt>\d+)(?:'.self::SEP.'(?<c1>\d+))?(?:'.self::SEP.'(?<c2>\d+))?$/iu';
 
     protected BankListRepository $repository;
+    protected SettlementService $settlementService;
 
-    public function __construct(BankListRepository $repository)
+    public function __construct(BankListRepository $repository, SettlementService $settlementService)
     {
         $this->repository = $repository;
+        $this->settlementService = $settlementService;
     }
 
     /**
@@ -155,41 +156,6 @@ class ListParserService
             ->map(fn($group) => (int)$group->sum($field))
             ->sortKeys()
             ->toArray();
-    }
-
-
-    private function formatRes($type, $num, $amt): array
-    {
-        return ['type' => $type, 'number' => $num, 'amount' => $amt, 'isWinner' => true];
-    }
-
-
-    public function processAndStoreChat($user, $data)
-    {
-        return DB::transaction(function () use ($user, $data) {
-            $cleanedText = $this->cleanWhatsAppChat($data['text']);
-            $extraction = $this->extractBets($cleanedText);
-            $bets = $extraction['bets'];
-            $fullText = $extraction['full_text'];
-            $errorLines = $bets->where('type', 'error')->pluck('originalLine');
-
-            if ($errorLines->isNotEmpty()) {
-                throw new \App\Exceptions\UnprocessedLinesException($errorLines->toArray());
-            }
-
-            $validBets = $bets->where('type', '!=', 'error');
-            if ($validBets->isEmpty()) {
-                throw new \Exception("La lista no contiene ninguna jugada válida (Ej: 25-10).");
-            }
-
-            $processedData = $this->calculateTotals($bets);
-            return $this->repository->store([
-                'user_id' => $user->id,
-                'text' => $data['text'],
-                'processed_text' => $processedData,
-                'hourly' => $data['hourly']
-            ]);
-        });
     }
 
     /**

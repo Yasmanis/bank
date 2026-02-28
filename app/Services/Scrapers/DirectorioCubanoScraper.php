@@ -35,6 +35,14 @@ class DirectorioCubanoScraper implements LotteryScraperInterface
                 return null;
             }
 
+            $fechaText = $container->filter('.fecha-loteria')->text('');
+            $hoyEnEspanol = $this->getFechaEnEspanol(); // Método auxiliar abajo
+
+            if (!str_contains(strtolower($fechaText), strtolower($hoyEnEspanol))) {
+                Log::info("DirectorioCubanoScraper: La fecha del sitio no coincide con hoy.");
+                return null;
+            }
+
             // 3. Extraer datos de la tabla
             // La estructura es: Fireball(0), Fijo(1), Corrido(2), Suma(3), Corrido 1(4), Corrido 2(5)
             $tableRow = $container->filter('.loteria-tabla table tbody tr td');
@@ -61,5 +69,10 @@ class DirectorioCubanoScraper implements LotteryScraperInterface
             Log::warning("DirectorioCubanoScraper falló: " . $e->getMessage());
             return null;
         }
+    }
+
+    private function getFechaEnEspanol() {
+        $meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        return now()->day . " de " . $meses[now()->month - 1];
     }
 }

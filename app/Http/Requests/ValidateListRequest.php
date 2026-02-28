@@ -6,24 +6,37 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ValidateListRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @queryParam bank_id int ID del banco al que se asigna la lista. Requerido si el status es approved.
+     * @queryParam status string Estado de la validación (approved o denied).
      */
     public function rules(): array
     {
         return [
-            'bank_id' => 'required|exists:banks,id',
-            'status' => 'required|in:approved,denied'
+            'status' => 'required|in:approved,denied',
+            'bank_id' => [
+                'required_if:status,approved',
+                'nullable',
+                'exists:banks,id'
+            ],
+        ];
+    }
+
+    /**
+     * Mensajes personalizados para la validación.
+     */
+    public function messages(): array
+    {
+        return [
+            'status.required' => 'El estado de la validación es obligatorio.',
+            'status.in' => 'El estado debe ser "approved" o "denied".',
+            'bank_id.required_if' => 'Debe asignar un banco para poder aprobar la lista.',
+            'bank_id.exists' => 'El banco seleccionado no es válido.',
         ];
     }
 }

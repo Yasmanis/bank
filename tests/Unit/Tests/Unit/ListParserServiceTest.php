@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\SettlementService;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 use App\Services\ListParserService;
@@ -18,7 +19,8 @@ class ListParserServiceTest extends TestCase
     {
         parent::setUp();
         $repository = Mockery::mock(BankListRepository::class);
-        $this->service = new ListParserService($repository);
+        $settlementService = Mockery::mock(SettlementService::class);
+        $this->service = new ListParserService($repository, $settlementService);
     }
 
     #[Test]

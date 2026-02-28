@@ -28,7 +28,18 @@ class LaBolitaCubanaScraper implements LotteryScraperInterface
 
             $crawler = new Crawler($html);
 
+
             $suffix = ($hourly === 'am') ? 'Midday' : 'Night';
+
+            $fechaID = "#fecha" . $suffix;
+            $fechaWeb = $this->getTextSafe($crawler, $fechaID);
+            $hoyEnEspanol = $this->getFechaEnEspanol(); // El mismo método auxiliar del primer scraper
+
+            if (!str_contains(strtolower($fechaWeb), strtolower($hoyEnEspanol))) {
+                Log::info("LaBolitaCubanaScraper: Resultados de ayer todavía en pantalla.");
+                return null;
+            }
+
 
             // Extraer Fijo
             $h  = $this->getTextSafe($crawler, "#number{$suffix}1");
@@ -63,5 +74,10 @@ class LaBolitaCubanaScraper implements LotteryScraperInterface
     {
         $node = $crawler->filter($selector);
         return $node->count() > 0 ? trim($node->text()) : null;
+    }
+
+    private function getFechaEnEspanol() {
+        $meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        return now()->day . " de " . $meses[now()->month - 1];
     }
 }

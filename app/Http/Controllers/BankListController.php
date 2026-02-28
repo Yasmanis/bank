@@ -4,15 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Dto\BankList\BankListFullResponseDto;
 use App\Dto\BankList\BankListPartialResponseDto;
+use App\Exceptions\UnprocessedLinesException;
 use App\Http\Requests\BankListIndexRequest;
 use App\Http\Requests\BankListPreviewRequest;
 use App\Http\Requests\ProcessListRequest;
 use App\Http\Requests\ValidateListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
+use App\Services\BankListService;
 use App\Services\ListParserService;
 use App\Services\SettlementService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class BankListController extends Controller
@@ -21,22 +22,32 @@ class BankListController extends Controller
     protected BankListRepository $repository;
     protected SettlementService $settlementService;
 
-    public function __construct(ListParserService $listService, BankListRepository $repository, SettlementService $settlementService)
+    protected BankListService $bankListService; // Inyectamos el orquestador
+
+    public function __construct(ListParserService $listService, BankListRepository $repository, SettlementService $settlementService, BankListService $bankListService)
     {
         $this->listService = $listService;
         $this->repository = $repository;
         $this->settlementService = $settlementService;
+        $this->bankListService = $bankListService;
+
     }
+
+    /**
+     * Ver Todas las listas.
+     */
 
     public function index(BankListIndexRequest $request)
     {
         try {
             $filters = $request->validated();
-            $perPage = $request->get('per_page', 15);
-
+            $perPage = $request->integer('per_page', 15);
+            // Pasamos filtros y el ID del que consulta
             $paginator = $this->repository->getPaginatedByUser($filters, auth()->id(), $perPage);
+            // Mantener los filtros en los links de paginación
             $paginator->appends($request->query());
             $paginator->through(fn($model) => BankListPartialResponseDto::fromModel($model));
+            // Agrupamiento por fecha y luego por nombre
             $groupedItems = $paginator->getCollection()
                 ->groupBy(function ($item) {
                     return \Carbon\Carbon::parse($item->created_at_raw)->format('Y-m-d');
@@ -44,7 +55,6 @@ class BankListController extends Controller
                 ->map(function ($dateGroup) {
                     return $dateGroup->groupBy('creator_name');
                 });
-
             $paginator->setCollection($groupedItems);
 
             return $this->successPaginated($paginator);
@@ -75,25 +85,17 @@ class BankListController extends Controller
     public function process(ProcessListRequest $request)
     {
         try {
-            $model = $this->listService->processAndStoreChat(
+            $model = $this->bankListService->createFromChat(
                 auth()->user(),
-                $request->all()
+                $request->validated()
             );
-            return $this->success([
-                'id' => $model->id
-            ], 'Procesado con éxito');
-
-        } catch (\App\Exceptions\UnprocessedLinesException $e) {
-            return $this->error(
-                'Existe parte de la lista que no pudieron ser procesadas. Por favor revise',
-                422,
-                ['not_processed' => $e->getLines()]
-            );
+            return $this->success(['id' => $model->id], 'Procesado con éxito');
+        } catch (UnprocessedLinesException $e) {
+            return $this->error('Errores en la lista', 422, ['not_processed' => $e->getLines()]);
         } catch (\Throwable $th) {
-            return $this->error('Error interno del servidor', 500, $th->getMessage());
+            return $this->error($th->getMessage(), 422);
         }
     }
-
 
     /**
      * Previsualizar procesamiento de lista.

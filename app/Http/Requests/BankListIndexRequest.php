@@ -28,6 +28,19 @@ class BankListIndexRequest extends FormRequest
             'search'   => 'nullable|string',
             'from'     => 'nullable|date',
             'to'       => 'nullable|date',
+            'user_id'  => 'nullable|integer|exists:users,id',
+            'name'     => 'nullable|string|max:50',
+        ];
+    }
+
+    /**
+     * Documentación para Scramble
+     */
+    public function queryParameters(): array
+    {
+        return [
+            'user_id' => ['description' => 'Filtrar por un usuario específico.', 'example' => 5],
+            'name'    => ['description' => 'Buscar por nombre del usuario.', 'example' => 'Jose'],
         ];
     }
 }

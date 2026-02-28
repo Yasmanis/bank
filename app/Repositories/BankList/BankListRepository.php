@@ -12,29 +12,28 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
     {
         parent::__construct(BankList::class);
     }
-    public function getPaginatedByUser(array $filters, int|string|null $userId, $perPage = 15): \Illuminate\Pagination\LengthAwarePaginator
+    public function getPaginatedByUser(array $filters, int $authId, $perPage = 15)
     {
         $query = BankList::with('user');
         if (!auth()->user()->can('list.view_all')) {
-            $query->where('user_id', $userId);
+            $query->where('user_id', $authId);
+        } else {
+            $query->when($filters['user_id'] ?? null, function ($q, $userId) {
+                $q->where('user_id', $userId);
+            });
+            $query->when($filters['name'] ?? null, function ($q, $name) {
+                $q->whereHas('user', function ($u) use ($name) {
+                    $u->where('name', 'like', "%{$name}%");
+                });
+            });
         }
 
-        $query->when($filters['hourly'] ?? null, function ($q, $hourly) {
-            $q->where('hourly', $hourly);
-        })
-            ->when($filters['status'] ?? null, function ($q, $status) {
-                $q->where('status', $status);
-            })
-            ->when($filters['from'] ?? null, function ($q, $from) {
-                $q->whereDate('created_at', '>=', $from);
-            })
-            ->when($filters['to'] ?? null, function ($q, $to) {
-                $q->whereDate('created_at', '<=', $to);
-            });
+        $query->when($filters['hourly'] ?? null, fn($q, $h) => $q->where('hourly', $h))
+            ->when($filters['status'] ?? null, fn($q, $s) => $q->where('status', $s))
+            ->when($filters['from'] ?? null, fn($q, $f) => $q->whereDate('created_at', '>=', $f))
+            ->when($filters['to'] ?? null, fn($q, $t) => $q->whereDate('created_at', '<=', $t));
 
-        return $query->orderBy('created_at', 'desc')
-            ->orderBy('user_id', 'asc')
-            ->paginate($perPage);
+        return $query->latest()->paginate($perPage);
     }
 
 }
