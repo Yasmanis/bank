@@ -53,7 +53,6 @@ class BankListService
                 'text' => $data['text'],
                 'processed_text' => $processedData,
                 'hourly' => $data['hourly'],
-                'full_text_cleaned' => $fullText,
                 // El bank_id puede ir aquí si ya se conoce o ser null para validar después
                 'bank_id' => $data['bank_id'] ?? null
             ]);
