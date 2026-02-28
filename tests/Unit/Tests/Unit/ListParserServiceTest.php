@@ -368,6 +368,32 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals('05', $bets->first()->number);
     }
 
+    /** @test */
+    public function it_extracts_line_range_with_underscores_as_triplet_correctly()
+    {
+        // Entrada: Rango 20-29 con montos 25, 20, 20 usando guiones bajos
+        $text = "20_al_29_25_20_20";
+
+        ['bets' => $bets] = $this->service->extractBets($text);
+
+        // 1. Debe generar 10 apuestas (del 20 al 29)
+        $this->assertCount(10, $bets);
+
+        // 2. Verificamos la primera apuesta (20)
+        $first = $bets->first();
+        $this->assertEquals('20', $first->number);
+        $this->assertEquals('triplet', $first->type); // Debe ser tripleta
+        $this->assertEquals(25, $first->amount);
+        $this->assertEquals(20, $first->runner1);
+        $this->assertEquals(20, $first->runner2);
+
+        // 3. Verificamos la última apuesta (29)
+        $last = $bets->last();
+        $this->assertEquals('29', $last->number);
+        $this->assertEquals('triplet', $last->type);
+        $this->assertEquals(25, $last->amount);
+    }
+
 
     #[Test]
     public function it_calculates_triplet_totals_separately_from_fixed()

@@ -67,12 +67,17 @@ class AuthController extends Controller
         // El nombre del token en la DB será 'android' o 'pc'
         $sanctumToken = $user->createToken($deviceType)->plainTextToken;
 
+        $roles = $user->getRoleNames();
         $payload = [
             'iat' => time(),
             'ts'  => (int)(microtime(true) * 1000),
             'device' => $deviceType,
-            'uid' => $user->id,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name
+            ],
             'sk'  => $sanctumToken,
+            'roles' => $roles
         ];
 
         $jwt = JWT::encode($payload, config('jwt.secret'), 'HS256');

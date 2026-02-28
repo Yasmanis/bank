@@ -22,7 +22,7 @@ class ListParserService
     private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)\s+al\s+\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)'.self::SEP.'(?<amt1>\d+)(?:\D+(?<amt2>\d+))?(?:\D+(?<amt3>\d+))?$/iu';
 
     private const RANGOS = '/^(?:del\s+)?(?<start>\d{1,2})\s+al\s+(?<end>\d{1,2})'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
-    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0\s*al\s*\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0'.self::SEP.'al'.self::SEP.'\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
 
     private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})'.self::SEP.'(?<amt>\d+)$/iu';
 
@@ -273,9 +273,13 @@ class ListParserService
             // 4. LÍNEAS
             elseif (preg_match(self::LINEAS, $lowerLine, $m)) {
                 $decade = ($m['dec1'] ?? '') ?: ($m['dec2'] ?? '') ?: ($m['dec3'] ?? '') ?: ($m['dec4'] ?? '');
+
+                // Capturamos los 3 posibles montos (para tripletas)
                 $amt = (int)(($m['amt1'] ?? '') ?: ($m['t_amt1'] ?? 0));
                 $c1  = (int)(($m['amt2'] ?? '') ?: ($m['t_amt2'] ?? 0));
                 $c2  = (int)(($m['amt3'] ?? '') ?: ($m['t_amt3'] ?? 0));
+
+                // Si los 3 montos son > 0, es una Tripleta
                 $type = ($amt > 0 && $c1 > 0 && $c2 > 0) ? 'triplet' : 'fixed';
 
                 for ($i = 0; $i <= 9; $i++) {
