@@ -21,7 +21,9 @@ class ProcessListRequest extends FormRequest
     {
         return [
             'text' => 'required|string|min:1',
-            'hourly' => 'required|in:am,pm'
+            'hourly' => 'required|in:am,pm',
+            'client_uuid' => 'nullable|string', // El APK generará un UUID
+            'client_created_at' => 'nullable|date',        // El APK mandará su hora local
         ];
     }
 
@@ -32,10 +34,10 @@ class ProcessListRequest extends FormRequest
     {
         return [
             'text.required' => 'El campo de texto es obligatorio.',
-            'text.string'   => 'El formato del texto no es válido.',
-            'text.min'      => 'El texto es demasiado corto para ser procesado.',
+            'text.string' => 'El formato del texto no es válido.',
+            'text.min' => 'El texto es demasiado corto para ser procesado.',
             'hourly.required' => 'Debes seleccionar un horario.',
-            'hourly.in'       => 'El horario debe ser am o pm.',
+            'hourly.in' => 'El horario debe ser am o pm.',
         ];
     }
 }

@@ -36,4 +36,9 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
         return $query->latest()->paginate($perPage);
     }
 
+    public function findByUuid(string $uuid)
+    {
+        return $this->query()->where('client_uuid', $uuid)->first();
+    }
+
 }

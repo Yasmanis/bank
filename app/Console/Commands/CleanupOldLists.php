@@ -22,7 +22,7 @@ class CleanupOldLists extends Command
     {
         $this->info('Iniciando limpieza de listas antiguas...');
 
-        $threshold = now()->subHours(48);
+        $threshold = now()->subDays(15);
 
         $count = BankList::where('created_at', '<', $threshold)->count();
 

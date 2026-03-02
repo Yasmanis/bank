@@ -21,18 +21,44 @@ class BankListService
     public function createFromChat($user, array $data)
     {
         return DB::transaction(function () use ($user, $data) {
-            // 1. Limpiar y Extraer (Usa el ListParserService)
+            // 1. CONTROL DE IDEMPOTENCIA (Seguridad para el APK)
+            if (!empty($data['client_uuid'])) {
+                $existing = $this->repository->findByUuid($data['client_uuid']);
+                if ($existing) return $existing;
+            }
+
+            // 2. VALIDACIÓN DE CIERRE TÉCNICO (Antifraude)
+            $now = now(); // America/Havana
+            $hourly = $data['hourly'];
+            $date = $data['date'] ?? $now->format('Y-m-d');
+
+            $closingTimes = [
+                'am' => '13:00', // 1:00 PM
+                'pm' => '21:00', // 9:00 PM
+            ];
+
+            // Solo bloqueamos si la lista es para HOY y el usuario NO es admin
+            // (Los admins pueden entrar listas a cualquier hora para rectificar)
+            if ($date === $now->format('Y-m-d') && !$user->hasRole('super-admin|admin')) {
+                if ($now->format('H:i') > $closingTimes[$hourly]) {
+                    throw new \Exception("El sorteo {$hourly} cerró a las {$closingTimes[$hourly]}. No se aceptan más listas.");
+                }
+            }
+
+            // 3. PROCESAMIENTO (Limpiar y Extraer)
             $cleanedText = $this->parser->cleanWhatsAppChat($data['text']);
             $extraction = $this->parser->extractBets($cleanedText);
 
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
+
             $this->validateExtraction($bets);
-            // 3. Calcular Totales de Venta
+
+            // 4. CÁLCULO DE TOTALES DE VENTA
             $processedData = $this->parser->calculateTotals($bets, $fullText);
-            $date = $data['date'] ?? now()->format('Y-m-d');
+
             $win = DailyNumber::whereDate('date', $date)
-                ->where('hourly', $data['hourly'])
+                ->where('hourly', $hourly)
                 ->first();
 
             if ($win) {
@@ -47,14 +73,15 @@ class BankListService
                 ];
             }
 
-            // 5. Guardar mediante el Repositorio
             return $this->repository->store([
-                'user_id' => $user->id,
-                'text' => $data['text'],
-                'processed_text' => $processedData,
-                'hourly' => $data['hourly'],
-                // El bank_id puede ir aquí si ya se conoce o ser null para validar después
-                'bank_id' => $data['bank_id'] ?? null
+                'user_id'           => $user->id,
+                'client_uuid'       => $data['client_uuid'] ?? null,
+                'client_created_at' => $data['client_created_at'] ?? $now,
+                'text'              => $data['text'],
+                'processed_text'    => $processedData,
+                'hourly'            => $hourly,
+                'bank_id'           => $data['bank_id'] ?? null,
+                'full_text_cleaned' => $fullText
             ]);
         });
     }
