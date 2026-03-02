@@ -36,9 +36,11 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
         return $query->latest()->paginate($perPage);
     }
 
-    public function findByUuid(string $uuid)
+    public function findDuplicate(int $userId, string $uuid)
     {
-        return $this->query()->where('client_uuid', $uuid)->first();
+        return \App\Models\BankList::where('user_id', $userId)
+            ->where('client_uuid', $uuid)
+            ->first();
     }
 
 }

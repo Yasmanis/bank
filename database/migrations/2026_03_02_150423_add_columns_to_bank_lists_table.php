@@ -11,8 +11,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('bank_lists', function (Blueprint $table) {
-            $table->uuid('client_uuid')->nullable()->unique()->after('id');
+            $table->uuid('client_uuid')->nullable()->after('id');
             $table->timestamp('client_created_at')->nullable()->after('created_at');
+            $table->unique(['user_id', 'client_uuid'], 'user_client_list_unique');
         });
     }
 
@@ -22,8 +23,8 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('bank_lists', function (Blueprint $table) {
-            $table->dropColumn('client_uuid');
-            $table->dropColumn('client_created_at');
+            $table->dropUnique(['user_id', 'client_uuid']);
+            $table->dropColumn(['client_uuid', 'client_created_at']);
         });
     }
 };

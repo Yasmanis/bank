@@ -23,8 +23,10 @@ class BankListService
         return DB::transaction(function () use ($user, $data) {
             // 1. CONTROL DE IDEMPOTENCIA (Seguridad para el APK)
             if (!empty($data['client_uuid'])) {
-                $existing = $this->repository->findByUuid($data['client_uuid']);
-                if ($existing) return $existing;
+                $existing = $this->repository->findDuplicate($user->id, $data['client_uuid']);
+                if ($existing) {
+                    return $existing;
+                }
             }
 
             // 2. VALIDACIÓN DE CIERRE TÉCNICO (Antifraude)
