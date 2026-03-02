@@ -82,8 +82,7 @@ class BankListService
                 'text'              => $data['text'],
                 'processed_text'    => $processedData,
                 'hourly'            => $hourly,
-                'bank_id'           => $data['bank_id'] ?? null,
-                'full_text_cleaned' => $fullText
+                'bank_id'           => $data['bank_id'] ?? null
             ]);
         });
     }
