@@ -108,8 +108,7 @@ class BankListController extends Controller
         $params = $request->validated();
 
         try {
-            $cleanedWhatsAppText = $this->listService->cleanWhatsAppChat($params['text']);
-            $extraction = $this->listService->extractBets($cleanedWhatsAppText);
+            $extraction = $this->listService->extractBets($params['text']);
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
 

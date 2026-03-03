@@ -47,9 +47,7 @@ class BankListService
                 }
             }
 
-            // 3. PROCESAMIENTO (Limpiar y Extraer)
-            $cleanedText = $this->parser->cleanWhatsAppChat($data['text']);
-            $extraction = $this->parser->extractBets($cleanedText);
+            $extraction = $this->parser->extractBets($data['text']);
 
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
