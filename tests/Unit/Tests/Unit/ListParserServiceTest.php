@@ -459,6 +459,34 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals(150, $totals['fixed_details']['05']);
     }
 
+    #[Test]
+    public function it_extracts_terminal_range_with_whatsapp_metadata_and_underscores_correctly()
+    {
+        // Caso real: Metadatos + Guiones bajos + 3 montos (Tripleta)
+        $text = "[3/3 9:27 p. m.] José Carlos Yasm: 09_al_99_50_10_10";
+
+        ['bets' => $bets] = $this->service->extractBets($text);
+
+        // 1. Debe generar 10 apuestas (09, 19, 29... 99)
+        $this->assertCount(10, $bets);
+
+        // 2. Verificamos la primera (09)
+        $first = $bets->first();
+        $this->assertEquals('09', $first->number);
+        $this->assertEquals('triplet', $first->type); // 3 montos detectados
+        $this->assertEquals(50, $first->amount);
+        $this->assertEquals(10, $first->runner1);
+        $this->assertEquals(10, $first->runner2);
+
+        // 3. Verificamos la última (99)
+        $last = $bets->last();
+        $this->assertEquals('99', $last->number);
+        $this->assertEquals(50, $last->amount);
+
+        // 4. Verificamos que guardó la línea original completa para el error_log
+        $this->assertEquals("[3/3 9:27 p. m.] José Carlos Yasm: 09_al_99_50_10_10", $first->originalLine);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
