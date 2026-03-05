@@ -92,4 +92,32 @@ class User extends Authenticatable
     {
         return $this->hasMany(Settlement::class);
     }
+
+    /**
+     * Usuarios que pertenecen a este usuario (Hijos)
+     */
+    public function subUsers()
+    {
+        return $this->hasMany(User::class, 'main_user_id');
+    }
+
+    /**
+     * El usuario principal al que pertenece este usuario (Padre)
+     */
+    public function mainUser()
+    {
+        return $this->belongsTo(User::class, 'main_user_id');
+    }
+
+    /**
+     * Helper para obtener todos los IDs que este usuario puede gestionar.
+     * Incluye su propio ID y el de todos sus sub-usuarios.
+     */
+    public function getManagedUserIds(): array
+    {
+        $ids = $this->subUsers()->pluck('id')->toArray();
+        $ids[] = $this->id; // Agregamos el ID del propio usuario
+        return $ids;
+    }
+
 }

@@ -12,21 +12,27 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
     {
         parent::__construct(BankList::class);
     }
+
     public function getPaginatedByUser(array $filters, int $authId, $perPage = 15)
     {
         $query = BankList::with('user');
-        if (!auth()->user()->can('list.view_all')) {
-            $query->where('user_id', $authId);
-        } else {
-            $query->when($filters['user_id'] ?? null, function ($q, $userId) {
-                $q->where('user_id', $userId);
-            });
-            $query->when($filters['name'] ?? null, function ($q, $name) {
-                $q->whereHas('user', function ($u) use ($name) {
-                    $u->where('name', 'like', "%{$name}%");
-                });
-            });
+        $user = auth()->user();
+        // --- LÓGICA DE SEGURIDAD JERÁRQUICA ---
+        if (!$user->can('list.view_all')) {
+            $managedIds = $user->getManagedUserIds();
+            $query->whereIn('user_id', $managedIds);
         }
+        // --- FILTROS ADICIONALES ---
+        // Si se pasa un user_id específico por query param, verificamos que esté en su grupo
+        $query->when($filters['user_id'] ?? null, function ($q, $userId) use ($user) {
+            $q->where('user_id', $userId);
+        });
+
+        $query->when($filters['name'] ?? null, function ($q, $name) {
+            $q->whereHas('user', function ($u) use ($name) {
+                $u->where('name', 'like', "%{$name}%");
+            });
+        });
 
         $query->when($filters['hourly'] ?? null, fn($q, $h) => $q->where('hourly', $h))
             ->when($filters['status'] ?? null, fn($q, $s) => $q->where('status', $s))
