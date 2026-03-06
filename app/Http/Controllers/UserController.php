@@ -27,6 +27,30 @@ class UserController extends Controller
 
     }
 
+    /**
+     * @group Gestión de Usuarios
+     *
+     * Obtener los listeros asociados al usuario autenticado.
+     */
+    public function myListMakers(\Illuminate\Http\Request $request)
+    {
+        try {
+            $filters = $request->only(['name']);
+            $perPage = $request->integer('per_page', 15);
+            // 2. Obtenemos los listeros (hijos) del usuario logueado
+            $paginator = $this->repository->getSubUsersPaginated(
+                auth()->id(),
+                $filters,
+                $perPage
+            );
+            $paginator->through(fn($model) => UserIndexResponseDto::fromModel($model));
+            return $this->successPaginated($paginator);
+
+        } catch (\Throwable $th) {
+            return $this->error('Error al obtener tus listeros', 422, $th->getMessage());
+        }
+    }
+
     public function userPermissions()
     {
         $user = auth()->user();

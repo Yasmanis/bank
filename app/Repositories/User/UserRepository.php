@@ -24,6 +24,17 @@ class UserRepository extends BaseRepository implements RepositoryInterface
             ->when($filters['name'] ?? null, fn($q, $s) => $q->where('name', $s));
     }
 
+    public function getSubUsersPaginated(int $mainUserId, array $filters = [], int $perPage = 15)
+    {
+        return $this->query()
+            ->where('main_user_id', $mainUserId)
+            ->when($filters['name'] ?? null, function ($q, $search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate($perPage);
+    }
+
     public function getUserByEmail(string $email)
     {
         return $this->query()->where('email', $email)->first();

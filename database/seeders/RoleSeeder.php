@@ -17,7 +17,8 @@ class RoleSeeder extends Seeder
                 'dashboard.index',
             ],
             'user' => [
-                'user.index'
+                'user.index',
+                'user.list_makers'
             ],
             'list' => [
                 'list.process',
@@ -102,6 +103,7 @@ class RoleSeeder extends Seeder
                 'user_config.edit',
                 'user_config.delete',
                 'user.index',
+                'user.list_makers',
                 'banks.index',
                 'banks.show',
                 'banks.create',
@@ -114,6 +116,7 @@ class RoleSeeder extends Seeder
                 'transaction.get_balance',
                 'daily_number.index',
                 'daily_number.show',
+                'user.list_makers'
             ],
         ];
 
