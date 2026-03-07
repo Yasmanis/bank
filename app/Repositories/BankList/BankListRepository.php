@@ -17,17 +17,23 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
     {
         $query = BankList::with('user');
         $user = auth()->user();
-        // --- LÓGICA DE SEGURIDAD JERÁRQUICA ---
         if (!$user->can('list.view_all')) {
-            $managedIds = $user->getManagedUserIds();
-            $query->whereIn('user_id', $managedIds);
-        }
-        // --- FILTROS ADICIONALES ---
-        // Si se pasa un user_id específico por query param, verificamos que esté en su grupo
-        $query->when($filters['user_id'] ?? null, function ($q, $userId) use ($user) {
-            $q->where('user_id', $userId);
-        });
+            if (!empty($filters['user_id'])) {
+                $managedIds = $user->getManagedUserIds();
+                if (in_array((int)$filters['user_id'], $managedIds)) {
+                    $query->where('user_id', $filters['user_id']);
+                } else {
+                    $query->where('user_id', $authId);
+                }
+            } else {
+                $query->where('user_id', $authId);
+            }
 
+        } else {
+            $query->when($filters['user_id'] ?? null, function ($q, $userId) {
+                $q->where('user_id', $userId);
+            });
+        }
         $query->when($filters['name'] ?? null, function ($q, $name) {
             $q->whereHas('user', function ($u) use ($name) {
                 $u->where('name', 'like', "%{$name}%");
