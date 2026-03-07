@@ -11,8 +11,14 @@ class BankList extends Model
     const STATUS_APPROVED = 'approved';
     const STATUS_PENDING = 'pending';
     const STATUS_REJECTED = 'denied';
+
+    const STATUS_ERROR = 'error';
     protected $guarded = [];
-    protected $casts = ['processed_text' => 'array'];
+    protected $casts = [
+        'processed_text' => 'array',
+        'error_log' => 'array',
+        'client_created_at' => 'datetime',
+    ];
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

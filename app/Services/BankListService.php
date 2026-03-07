@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\BankList;
 use App\Models\DailyNumber;
+use App\Models\User;
 use App\Repositories\BankList\BankListRepository;
 use App\Exceptions\UnprocessedLinesException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class BankListService
@@ -18,84 +21,67 @@ class BankListService
     /**
      * Orquestación completa: De texto de WhatsApp a Registro en Base de Datos
      */
-    public function createFromChat($user, array $data)
+    public function createFromChat(User $user, array $data)
     {
         return DB::transaction(function () use ($user, $data) {
-            // 1. CONTROL DE IDEMPOTENCIA (Seguridad para el APK)
             if (!empty($data['client_uuid'])) {
                 $existing = $this->repository->findDuplicate($user->id, $data['client_uuid']);
-                if ($existing) {
-                    return $existing;
-                }
+                if ($existing) return $existing;
             }
-
-            // --- PROCESAR FECHA DEL CLIENTE (Ajuste para Android ISO 8601) ---
-            // Convertimos "2026-03-06T21:18:53.200Z" a un objeto Carbon usable por MySQL
+            $now = now();
             $clientCreatedAt = !empty($data['client_created_at'])
                 ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
-                : now();
+                : $now;
 
-            // 2. VALIDACIÓN DE CIERRE TÉCNICO (Antifraude)
-            $now = now(); // Hora actual en America/Havana
-            $hourly = $data['hourly'];
-            $date = $data['date'] ?? $now->format('Y-m-d');
+            $status = BankList::STATUS_PENDING;
+            $errorLog = null;
+            $processedData = [];
 
-            $closingTimes = [
-                'am' => '13:00', // 1:00 PM
-                'pm' => '21:00', // 9:00 PM
-            ];
+            try {
+                // 2. VALIDACIÓN DE CIERRE TÉCNICO (Evita fraudes)
+                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user);
+                $extraction = $this->parser->extractBets($data['text']);
+                $bets = $extraction['bets'];
+                $fullText = $extraction['full_text'];
 
-            // Solo bloqueamos si la lista es para HOY y el usuario NO es admin
-            if ($date === $now->format('Y-m-d') && !$user->hasRole('super-admin|admin')) {
-                // IMPORTANTE: Comparamos contra la hora de recepción del servidor ($now)
-                // para evitar que el usuario manipule la hora de su teléfono.
-                if ($now->format('H:i') > $closingTimes[$hourly]) {
-                    throw new \Exception("El sorteo {$hourly} cerró a las {$closingTimes[$hourly]}. No se aceptan más listas.");
-                }
+                $this->validateExtraction($bets);
+                $processedData = $this->parser->calculateTotals($bets, $fullText);
+                $processedData = $this->enrichWithPrizes($user, $processedData, $bets, $data);
+
+            } catch (UnprocessedLinesException $e) {
+                $status = BankList::STATUS_ERROR;
+                $errorLog = ['unprocessed_lines' => $e->getLines()];
+                $processedData = $this->parser->calculateTotals($bets ?? collect(), $fullText ?? '');
+            } catch (\Throwable $th) {
+                $status = BankList::STATUS_ERROR;
+                $errorLog = ['system_error' => $th->getMessage()];
             }
 
-            // 3. EXTRACCIÓN Y VALIDACIÓN
-            $extraction = $this->parser->extractBets($data['text']);
-            $bets = $extraction['bets'];
-            $fullText = $extraction['full_text'];
-
-            $this->validateExtraction($bets);
-
-            // 4. CÁLCULO DE TOTALES DE VENTA
-            $processedData = $this->parser->calculateTotals($bets, $fullText);
-
-            // 5. ENRIQUECER CON PREMIOS (Si el número ya salió)
-            $win = DailyNumber::whereDate('date', $date)
-                ->where('hourly', $hourly)
-                ->first();
-
-            if ($win) {
-                $rates = $user->getEffectiveRates();
-                $prizesData = $this->settlementService->calculateFromBets($bets, $win, $rates);
-
-                $processedData['prizes_preview'] = [
-                    'found' => true,
-                    'total_prizes' => $prizesData['total'],
-                    'breakdown' => $prizesData['breakdown'],
-                    'winning_number' => "{$win->hundred}-{$win->fixed}"
-                ];
-            }
-
-            // 6. GUARDADO FINAL
-            return $this->repository->store([
+            $record = $this->repository->store([
                 'user_id'           => $user->id,
                 'client_uuid'       => $data['client_uuid'] ?? null,
                 'client_created_at' => $clientCreatedAt,
                 'text'              => $data['text'],
                 'processed_text'    => $processedData,
-                'hourly'            => $hourly,
+                'error_log'         => $errorLog,
+                'status'            => $status,
+                'hourly'            => $data['hourly'],
                 'bank_id'           => $data['bank_id'] ?? null,
-                'created_at'        => $now
             ]);
+
+            // Si el estado es error, lanzamos la excepción DESPUÉS de guardar
+            if ($status === BankList::STATUS_ERROR) {
+                throw new UnprocessedLinesException($errorLog['unprocessed_lines'] ?? [$errorLog['system_error']]);
+            }
+
+            return $record;
         });
     }
 
-    protected function validateExtraction($bets)
+    /**
+     * Valida que no haya líneas con error y que existan apuestas válidas.
+     */
+    protected function validateExtraction(Collection $bets): void
     {
         $errorLines = $bets->where('type', 'error')->pluck('originalLine');
         if ($errorLines->isNotEmpty()) {
@@ -105,5 +91,50 @@ class BankListService
         if ($bets->where('type', '!=', 'error')->isEmpty()) {
             throw new \Exception("La lista no contiene ninguna jugada válida.");
         }
+    }
+
+    /**
+     * Valida si el sorteo de hoy ya cerró según la hora del servidor.
+     */
+    protected function checkClosingTime(string $hourly, string $date, User $user): void
+    {
+        $now = now();
+        $closingTimes = [
+            'am' => '13:00', // 1:00 PM
+            'pm' => '21:00', // 9:00 PM
+        ];
+
+        // Los administradores pueden saltar el cierre para rectificar datos
+        if ($date === $now->format('Y-m-d') && !$user->hasRole(['super-admin', 'admin'])) {
+            if ($now->format('H:i') > $closingTimes[$hourly]) {
+                throw new \Exception("El sorteo {$hourly} ya cerró a las {$closingTimes[$hourly]}.");
+            }
+        }
+    }
+
+    /**
+     * Si el número ganador ya existe, añade el resultado de premios al JSON procesado.
+     */
+    protected function enrichWithPrizes(User $user, array $processedData, Collection $bets, array $data): array
+    {
+        $date = $data['date'] ?? now()->format('Y-m-d');
+
+        $win = DailyNumber::whereDate('date', $date)
+            ->where('hourly', $data['hourly'])
+            ->first();
+
+        if ($win) {
+            $rates = $user->getEffectiveRates();
+            $prizesData = $this->settlementService->calculateFromBets($bets, $win, $rates);
+
+            $processedData['prizes_preview'] = [
+                'found' => true,
+                'total_prizes' => $prizesData['total'],
+                'breakdown' => $prizesData['breakdown'],
+                'winning_number' => "{$win->hundred}-{$win->fixed}"
+            ];
+        }
+
+        return $processedData;
     }
 }
