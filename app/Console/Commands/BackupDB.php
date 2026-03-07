@@ -31,38 +31,52 @@ class BackupDB extends Command
     {
         set_time_limit(0);
         ini_set('memory_limit', '8912M');
-        $now = Carbon::now()->toDateString() . '-' . Carbon::now()->timestamp;
-        $db = env('DB_DATABASE', 'forge');
-        $user = env('DB_USERNAME', 'forge');
-        $pass = env('DB_PASSWORD', '');
-        $backupPath = storage_path('backup');
+
+        $now = Carbon::now()->format('Y-m-d-H-i-s');
+
+        // USAR SIEMPRE config() EN LUGAR DE env()
+        $db   = config('database.connections.mysql.database');
+        $user = config('database.connections.mysql.username');
+        $pass = config('database.connections.mysql.password');
+        $host = config('database.connections.mysql.host');
+        $port = config('database.connections.mysql.port');
+
+        $backupPath = storage_path('app/backup'); // Carpeta recomendada en storage/app
+
+        // Asegurarse de que la carpeta existe
+        if (!file_exists($backupPath)) {
+            mkdir($backupPath, 0755, true);
+        }
+
         $sqlFile = $backupPath . '/dump-' . $now . '.sql';
         $zipFile = $backupPath . '/dump-' . $now . '.zip';
 
         try {
-            // Create SQL dump
-            $dump = new IMysqldump\Mysqldump('mysql:host=localhost;dbname=' . $db, $user, $pass);
+            $dsn = "mysql:host={$host};port={$port};dbname={$db}";
+
+            $dump = new IMysqldump\Mysqldump($dsn, $user, $pass);
             $dump->start($sqlFile);
 
-            // Compress the SQL dump into a ZIP file
+            // Comprimir
             $zip = new ZipArchive();
             if ($zip->open($zipFile, ZipArchive::CREATE) === true) {
                 $zip->addFile($sqlFile, basename($sqlFile));
-                $zip->setCompressionName(basename($sqlFile), ZipArchive::CM_DEFLATE);
                 $zip->close();
 
-                // Delete the original SQL file after zipping
-                unlink($sqlFile);
+                if (file_exists($sqlFile)) {
+                    unlink($sqlFile);
+                }
             } else {
-                Log::error('Error al crear el archivo ZIP');
+                Log::error('BackupDB: Error al crear el archivo ZIP');
+                return;
             }
+
+            Log::info("BackupDB: Base de datos '$db' guardada con éxito en $zipFile");
+            activity()->log('Salva de BD generada correctamente');
+
         } catch (\Exception $e) {
-            Log::error('mysqldump-php error: ' . $e->getMessage());
-            return;
+            Log::error('BackupDB Error: ' . $e->getMessage());
+            $this->error('Fallo en el backup: ' . $e->getMessage());
         }
-
-        Log::info('Backup de base de datos guardado y comprimido.');
-
-        activity()->log('Salva de BD');
     }
 }
