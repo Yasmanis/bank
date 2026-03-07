@@ -85,9 +85,10 @@ class TransactionController extends Controller
         try {
             $model = $this->repository->getModelById($id);
             $userId = $model->user_id;
+            $bankId = $model->bank_id;
             $this->repository->delete($id);
             return $this->success([
-                'new_balance' => $this->repository->getUserBalance($userId)
+                'new_balance' => $this->repository->getUserBalanceByBank($userId, $bankId)
             ], 'Transacción eliminada correctamente');
         } catch (\Throwable $th) {
             return $this->error('Error al eliminar la transacción', 422, $th->getMessage());
@@ -97,14 +98,14 @@ class TransactionController extends Controller
     public function getBalanceByUser($id)
     {
         try {
-            $userRepository = new UserRepository();
-            $user = $userRepository->getModelById($id);
+            $balances = $this->repository->getAllBalancesByUser($id);
             return $this->success([
-                'balance' => $this->repository->getUserBalance($user->id)
+                'balance' => array_sum($balances)
             ]);
         } catch (\Throwable $th) {
             return $this->error('Error al obtener el Balance', 422, $th->getMessage());
         }
     }
+
 
 }

@@ -32,4 +32,21 @@ class TransactionRepository extends BaseRepository
             ->selectRaw("SUM(CASE WHEN type = 'outcome' THEN amount ELSE -amount END) as balance")
             ->value('balance') ?? 0.0;
     }
+
+
+    public function getAllBalancesByUser(int $userId): array
+    {
+        return Transaction::where('user_id', $userId)
+            ->where('status', Transaction::STATUS_APPROVED)
+            ->with('bank')
+            ->select('bank_id')
+            ->selectRaw("SUM(CASE WHEN type = 'outcome' THEN amount ELSE -amount END) as balance")
+            ->groupBy('bank_id')
+            ->get()
+            ->mapWithKeys(function ($item) {
+                $bankName = $item->bank->name ?? 'Desconocido';
+                return [$bankName => (float) $item->balance];
+            })
+            ->toArray();
+    }
 }

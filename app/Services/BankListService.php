@@ -29,8 +29,14 @@ class BankListService
                 }
             }
 
+            // --- PROCESAR FECHA DEL CLIENTE (Ajuste para Android ISO 8601) ---
+            // Convertimos "2026-03-06T21:18:53.200Z" a un objeto Carbon usable por MySQL
+            $clientCreatedAt = !empty($data['client_created_at'])
+                ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
+                : now();
+
             // 2. VALIDACIÓN DE CIERRE TÉCNICO (Antifraude)
-            $now = now(); // America/Havana
+            $now = now(); // Hora actual en America/Havana
             $hourly = $data['hourly'];
             $date = $data['date'] ?? $now->format('Y-m-d');
 
@@ -40,15 +46,16 @@ class BankListService
             ];
 
             // Solo bloqueamos si la lista es para HOY y el usuario NO es admin
-            // (Los admins pueden entrar listas a cualquier hora para rectificar)
             if ($date === $now->format('Y-m-d') && !$user->hasRole('super-admin|admin')) {
+                // IMPORTANTE: Comparamos contra la hora de recepción del servidor ($now)
+                // para evitar que el usuario manipule la hora de su teléfono.
                 if ($now->format('H:i') > $closingTimes[$hourly]) {
                     throw new \Exception("El sorteo {$hourly} cerró a las {$closingTimes[$hourly]}. No se aceptan más listas.");
                 }
             }
 
+            // 3. EXTRACCIÓN Y VALIDACIÓN
             $extraction = $this->parser->extractBets($data['text']);
-
             $bets = $extraction['bets'];
             $fullText = $extraction['full_text'];
 
@@ -57,6 +64,7 @@ class BankListService
             // 4. CÁLCULO DE TOTALES DE VENTA
             $processedData = $this->parser->calculateTotals($bets, $fullText);
 
+            // 5. ENRIQUECER CON PREMIOS (Si el número ya salió)
             $win = DailyNumber::whereDate('date', $date)
                 ->where('hourly', $hourly)
                 ->first();
@@ -73,14 +81,16 @@ class BankListService
                 ];
             }
 
+            // 6. GUARDADO FINAL
             return $this->repository->store([
                 'user_id'           => $user->id,
                 'client_uuid'       => $data['client_uuid'] ?? null,
-                'client_created_at' => $data['client_created_at'] ?? $now,
+                'client_created_at' => $clientCreatedAt,
                 'text'              => $data['text'],
                 'processed_text'    => $processedData,
                 'hourly'            => $hourly,
-                'bank_id'           => $data['bank_id'] ?? null
+                'bank_id'           => $data['bank_id'] ?? null,
+                'created_at'        => $now
             ]);
         });
     }
