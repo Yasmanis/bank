@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Bank;
 use App\Models\BankList;
 use App\Models\DailyNumber;
 use App\Models\User;
@@ -21,13 +22,15 @@ class BankListService
     /**
      * Orquestación completa: De texto de WhatsApp a Registro en Base de Datos
      */
-    public function createFromChat(User $user, array $data)
+    public function createFromChat($user, array $data)
     {
-        return DB::transaction(function () use ($user, $data) {
+        // 1. Ejecutamos la lógica y el guardado dentro de la transacción
+        $record = DB::transaction(function () use ($user, $data) {
             if (!empty($data['client_uuid'])) {
                 $existing = $this->repository->findDuplicate($user->id, $data['client_uuid']);
                 if ($existing) return $existing;
             }
+
             $now = now();
             $clientCreatedAt = !empty($data['client_created_at'])
                 ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
@@ -36,28 +39,32 @@ class BankListService
             $status = BankList::STATUS_PENDING;
             $errorLog = null;
             $processedData = [];
+            $fullText = '';
+            $bets = collect();
 
             try {
-                // 2. VALIDACIÓN DE CIERRE TÉCNICO (Evita fraudes)
                 $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user);
+
                 $extraction = $this->parser->extractBets($data['text']);
                 $bets = $extraction['bets'];
                 $fullText = $extraction['full_text'];
 
                 $this->validateExtraction($bets);
+
                 $processedData = $this->parser->calculateTotals($bets, $fullText);
                 $processedData = $this->enrichWithPrizes($user, $processedData, $bets, $data);
 
             } catch (UnprocessedLinesException $e) {
                 $status = BankList::STATUS_ERROR;
                 $errorLog = ['unprocessed_lines' => $e->getLines()];
-                $processedData = $this->parser->calculateTotals($bets ?? collect(), $fullText ?? '');
+                $processedData = $this->parser->calculateTotals($bets, $fullText);
             } catch (\Throwable $th) {
                 $status = BankList::STATUS_ERROR;
                 $errorLog = ['system_error' => $th->getMessage()];
             }
 
-            $record = $this->repository->store([
+            // GUARDADO: Esto se confirmará porque la transacción termina aquí
+            return $this->repository->store([
                 'user_id'           => $user->id,
                 'client_uuid'       => $data['client_uuid'] ?? null,
                 'client_created_at' => $clientCreatedAt,
@@ -66,16 +73,19 @@ class BankListService
                 'error_log'         => $errorLog,
                 'status'            => $status,
                 'hourly'            => $data['hourly'],
-                'bank_id'           => $data['bank_id'] ?? null,
+                'bank_id'           => $data['bank_id'] ?? Bank::first()->id,
             ]);
-
-            // Si el estado es error, lanzamos la excepción DESPUÉS de guardar
-            if ($status === BankList::STATUS_ERROR) {
-                throw new UnprocessedLinesException($errorLog['unprocessed_lines'] ?? [$errorLog['system_error']]);
-            }
-
-            return $record;
         });
+
+        // 2. FUERA DE LA TRANSACCIÓN:
+        // Ahora que el registro ya está seguro en la base de datos,
+        // revisamos si era un error para avisar al controlador.
+        if ($record->status === BankList::STATUS_ERROR) {
+            $messages = $record->error_log['unprocessed_lines'] ?? [$record->error_log['system_error']];
+            throw new UnprocessedLinesException($messages);
+        }
+
+        return $record;
     }
 
     /**

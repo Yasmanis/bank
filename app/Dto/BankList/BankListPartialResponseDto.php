@@ -3,7 +3,6 @@
 namespace App\Dto\BankList;
 
 use App\Models\BankList;
-use Carbon\Carbon;
 
 class BankListPartialResponseDto
 {
@@ -13,7 +12,10 @@ class BankListPartialResponseDto
         public string $creator_name,
         public string $created_at,
         public string $status,
-        public string $created_at_raw
+        public string $created_at_raw,
+        public float $total,
+        public ?string $bank_name,
+        public ?array $error_log
     ) {}
 
     /**
@@ -23,11 +25,14 @@ class BankListPartialResponseDto
     {
         return new self(
             id: $model->id,
-            hourly: $model->hourly,
+            hourly: strtoupper($model->hourly),
             creator_name: $model->user->name,
             created_at: $model->created_at->format('d/m/Y H:i'),
             status: $model->status,
-            created_at_raw: $model->created_at
+            created_at_raw: $model->created_at->format('Y-m-d'), // Simplificado para el groupBy del controller
+            total: (float) ($model->processed_text['total'] ?? 0),
+            bank_name: $model->bank->name ?? 'Sin asignar',
+            error_log: $model->error_log
         );
     }
 }
