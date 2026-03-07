@@ -14,10 +14,12 @@ use Illuminate\Support\Facades\DB;
 class BankListService
 {
     public function __construct(
-        protected ListParserService $parser,
+        protected ListParserService  $parser,
         protected BankListRepository $repository,
-        protected SettlementService $settlementService
-    ) {}
+        protected SettlementService  $settlementService
+    )
+    {
+    }
 
     /**
      * Orquestación completa: De texto de WhatsApp a Registro en Base de Datos
@@ -65,24 +67,32 @@ class BankListService
 
             // GUARDADO: Esto se confirmará porque la transacción termina aquí
             return $this->repository->store([
-                'user_id'           => $user->id,
-                'client_uuid'       => $data['client_uuid'] ?? null,
+                'user_id' => $user->id,
+                'client_uuid' => $data['client_uuid'] ?? null,
                 'client_created_at' => $clientCreatedAt,
-                'text'              => $data['text'],
-                'processed_text'    => $processedData,
-                'error_log'         => $errorLog,
-                'status'            => $status,
-                'hourly'            => $data['hourly'],
-                'bank_id'           => $data['bank_id'] ?? Bank::first()->id,
+                'text' => $data['text'],
+                'processed_text' => $processedData,
+                'error_log' => $errorLog,
+                'status' => $status,
+                'hourly' => $data['hourly'],
+                'bank_id' => $data['bank_id'] ?? Bank::first()->id,
             ]);
         });
 
         // 2. FUERA DE LA TRANSACCIÓN:
         // Ahora que el registro ya está seguro en la base de datos,
-        // revisamos si era un error para avisar al controlador.
         if ($record->status === BankList::STATUS_ERROR) {
-            $messages = $record->error_log['unprocessed_lines'] ?? [$record->error_log['system_error']];
-            throw new UnprocessedLinesException($messages);
+            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
+            if (!empty($record->error_log['system_error'])) {
+                // Lanzamos una excepción normal con el mensaje (string)
+                throw new \Exception($record->error_log['system_error']);
+            }
+
+            // CASO B: Error de Extracción (Líneas que no se entendieron)
+            if (!empty($record->error_log['unprocessed_lines'])) {
+                // Lanzamos tu excepción personalizada con el array de líneas
+                throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
+            }
         }
 
         return $record;

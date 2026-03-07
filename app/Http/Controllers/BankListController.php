@@ -90,8 +90,13 @@ class BankListController extends Controller
                 $request->validated()
             );
             return $this->success(['id' => $model->id], 'Procesado con éxito');
+
         } catch (UnprocessedLinesException $e) {
-            return $this->error('Errores en la lista', 422, ['not_processed' => $e->getLines()]);
+            return $this->error(
+                'Existen líneas que no pudieron ser procesadas.',
+                422,
+                ['not_processed' => $e->getLines()]
+            );
         } catch (\Throwable $th) {
             return $this->error($th->getMessage(), 422);
         }
