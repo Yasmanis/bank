@@ -67,14 +67,13 @@ class BankListController extends Controller
     public function show($id)
     {
         try {
-            $bankListRepository = new BankListRepository();
-            $model = $bankListRepository->getModelById($id);
-            if (!auth()->user()->can('list.view_all') && $model->user_id !== auth()->id()) {
-                return $this->error('No tienes permiso para ver esta lista', 403);
-            }
-            $model->load('user');
+            $model = $this->repository->getModelById($id);
+            $this->authorize('view', $model);
+            $model->load(['user', 'bank']);
             return $this->success(BankListFullResponseDto::fromModel($model));
 
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->error('No tienes permiso para ver esta lista', 403);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('La lista no existe', 404);
         } catch (\Throwable $th) {

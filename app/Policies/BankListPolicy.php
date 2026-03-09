@@ -21,9 +21,11 @@ class BankListPolicy
      */
     public function view(User $user, BankList $bankList): bool
     {
-        return false;
+        if ($user->can('list.view_all')) {
+            return true;
+        }
+        return in_array($bankList->user_id, $user->getManagedUserIds());
     }
-
     /**
      * Determine whether the user can create models.
      */

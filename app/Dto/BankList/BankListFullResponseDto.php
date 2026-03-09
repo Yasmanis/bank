@@ -16,7 +16,9 @@ class BankListFullResponseDto
         public array $processed_text,
         public int $created_by,
         public ?int $updated_by, // Nulable por si no se ha editado
-        public ?int $approved_by, // Nulable por si no se ha aprobado
+        public ?int $approved_by, // Nulable por si no se ha aprobado,
+        public ?string $bank_name,
+        public ?array $error_log
     ) {}
 
     /**
@@ -35,6 +37,8 @@ class BankListFullResponseDto
             created_by: (int) $model->created_by,
             updated_by: $model->updated_by ? (int) $model->updated_by : null,
             approved_by: $model->approved_by ? (int) $model->approved_by : null,
+            bank_name: $model->bank->name ?? 'Sin asignar',
+            error_log: $model->error_log
         );
     }
 }
