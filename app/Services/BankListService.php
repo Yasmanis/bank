@@ -8,6 +8,7 @@ use App\Models\DailyNumber;
 use App\Models\User;
 use App\Repositories\BankList\BankListRepository;
 use App\Exceptions\UnprocessedLinesException;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -35,7 +36,7 @@ class BankListService
 
             $now = now();
             $clientCreatedAt = !empty($data['client_created_at'])
-                ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
+                ? Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
                 : $now;
 
             $status = BankList::STATUS_PENDING;
@@ -45,7 +46,7 @@ class BankListService
             $bets = collect();
 
             try {
-                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user);
+                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user,$clientCreatedAt);
 
                 $extraction = $this->parser->extractBets($data['text']);
                 $bets = $extraction['bets'];
@@ -79,21 +80,21 @@ class BankListService
             ]);
         });
 
-        // 2. FUERA DE LA TRANSACCIÓN:
-        // Ahora que el registro ya está seguro en la base de datos,
-        if ($record->status === BankList::STATUS_ERROR) {
-            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
-            if (!empty($record->error_log['system_error'])) {
-                // Lanzamos una excepción normal con el mensaje (string)
-                throw new \Exception($record->error_log['system_error']);
-            }
-
-            // CASO B: Error de Extracción (Líneas que no se entendieron)
-            if (!empty($record->error_log['unprocessed_lines'])) {
-                // Lanzamos tu excepción personalizada con el array de líneas
-                throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
-            }
-        }
+//        // 2. FUERA DE LA TRANSACCIÓN:
+//        // Ahora que el registro ya está seguro en la base de datos,
+//        if ($record->status === BankList::STATUS_ERROR) {
+//            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
+//            if (!empty($record->error_log['system_error'])) {
+//                // Lanzamos una excepción normal con el mensaje (string)
+//                throw new \Exception($record->error_log['system_error']);
+//            }
+//
+//            // CASO B: Error de Extracción (Líneas que no se entendieron)
+//            if (!empty($record->error_log['unprocessed_lines'])) {
+//                // Lanzamos tu excepción personalizada con el array de líneas
+//                throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
+//            }
+//        }
 
         return $record;
     }
@@ -116,22 +117,28 @@ class BankListService
     /**
      * Valida si el sorteo de hoy ya cerró según la hora del servidor.
      */
-    protected function checkClosingTime(string $hourly, string $date, User $user): void
+    protected function checkClosingTime(string $hourly, string $date, User $user, Carbon $clientTime): void
     {
-        $now = now();
+        // Horarios de cierre
         $closingTimes = [
             'am' => '13:00', // 1:00 PM
             'pm' => '21:00', // 9:00 PM
         ];
 
-        // Los administradores pueden saltar el cierre para rectificar datos
-        if ($date === $now->format('Y-m-d') && !$user->hasRole(['super-admin', 'admin'])) {
-            if ($now->format('H:i') > $closingTimes[$hourly]) {
-                throw new \Exception("El sorteo {$hourly} ya cerró a las {$closingTimes[$hourly]}.");
+        // Los admins pueden saltar la validación de la hora del reloj
+        if ($date === now()->format('Y-m-d') && !$user->hasRole(['super-admin', 'admin'])) {
+            // Validamos contra el reloj que mandó el teléfono (clientTime)
+            if ($clientTime->format('H:i') > $closingTimes[$hourly]) {
+                throw new \Exception("La lista fue creada fuera de horario ({$clientTime->format('H:i')}).");
             }
+
+            // Seguridad extra: Si la lista llega al servidor con mucha diferencia de tiempo (ej. 4 horas después)
+            // podrías poner un límite de sincronización.
+//            if (now()->diffInHours($clientTime) > 12) {
+//                throw new \Exception("La lista ha tardado demasiado en sincronizarse y ya no es válida.");
+//            }
         }
     }
-
     /**
      * Si el número ganador ya existe, añade el resultado de premios al JSON procesado.
      */
