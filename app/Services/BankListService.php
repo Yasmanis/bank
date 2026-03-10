@@ -80,21 +80,21 @@ class BankListService
             ]);
         });
 
-//        // 2. FUERA DE LA TRANSACCIÓN:
-//        // Ahora que el registro ya está seguro en la base de datos,
-//        if ($record->status === BankList::STATUS_ERROR) {
-//            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
-//            if (!empty($record->error_log['system_error'])) {
-//                // Lanzamos una excepción normal con el mensaje (string)
-//                throw new \Exception($record->error_log['system_error']);
-//            }
-//
-//            // CASO B: Error de Extracción (Líneas que no se entendieron)
-//            if (!empty($record->error_log['unprocessed_lines'])) {
-//                // Lanzamos tu excepción personalizada con el array de líneas
-//                throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
-//            }
-//        }
+        // 2. FUERA DE LA TRANSACCIÓN:
+        // Ahora que el registro ya está seguro en la base de datos,
+        if ($record->status === BankList::STATUS_ERROR) {
+            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
+            if (!empty($record->error_log['system_error'])) {
+                // Lanzamos una excepción normal con el mensaje (string)
+                throw new \Exception($record->error_log['system_error']);
+            }
+
+            // CASO B: Error de Extracción (Líneas que no se entendieron)
+            if (!empty($record->error_log['unprocessed_lines'])) {
+                // Lanzamos tu excepción personalizada con el array de líneas
+                throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
+            }
+        }
 
         return $record;
     }
