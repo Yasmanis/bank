@@ -7,19 +7,22 @@ use App\Models\BankList;
 class BankListFullResponseDto
 {
     public function __construct(
-        public int $id,
-        public string $hourly,
-        public string $creator_name,
-        public string $created_at,
-        public string $status,
-        public string $text,
-        public array $processed_text,
-        public int $created_by,
-        public ?int $updated_by, // Nulable por si no se ha editado
-        public ?int $approved_by, // Nulable por si no se ha aprobado,
+        public int     $id,
+        public string  $hourly,
+        public string  $creator_name,
+        public string  $created_at,
+        public string  $status,
+        public string  $text,
+        public array   $processed_text,
+        public int     $created_by,
+        public ?int    $updated_by, // Nulable por si no se ha editado
+        public ?int    $approved_by, // Nulable por si no se ha aprobado,
         public ?string $bank_name,
-        public ?array $error_log
-    ) {}
+        public ?array  $error_log,
+        public ?string $file_url
+    )
+    {
+    }
 
     /**
      * Mapea un modelo BankList a este DTO.
@@ -34,11 +37,12 @@ class BankListFullResponseDto
             status: $model->status ?? 'Pendiente',
             text: $model->text,
             processed_text: $model->processed_text, // Laravel ya lo castea a array
-            created_by: (int) $model->created_by,
-            updated_by: $model->updated_by ? (int) $model->updated_by : null,
-            approved_by: $model->approved_by ? (int) $model->approved_by : null,
+            created_by: (int)$model->created_by,
+            updated_by: $model->updated_by ? (int)$model->updated_by : null,
+            approved_by: $model->approved_by ? (int)$model->approved_by : null,
             bank_name: $model->bank->name ?? 'Sin asignar',
-            error_log: $model->error_log
+            error_log: $model->error_log,
+            file_url: $model->file_path ? asset('storage/' . $model->file_path) : null
         );
     }
 }

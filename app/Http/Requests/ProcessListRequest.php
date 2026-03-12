@@ -20,10 +20,11 @@ class ProcessListRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'text' => 'required|string|min:1',
+            'text'   => 'required_without:file|nullable|string',
             'hourly' => 'required|in:am,pm',
             'client_uuid' => 'nullable|string', // El APK generará un UUID
             'client_created_at' => 'nullable|date',        // El APK mandará su hora local
+            'file' => 'required_without:text|nullable|file|mimes:jpg,jpeg,png|max:5120',
         ];
     }
 
@@ -38,6 +39,9 @@ class ProcessListRequest extends FormRequest
             'text.min' => 'El texto es demasiado corto para ser procesado.',
             'hourly.required' => 'Debes seleccionar un horario.',
             'hourly.in' => 'El horario debe ser am o pm.',
+            'file.mimes' => 'El archivo debe ser una imagen (jpg, png) o un documento de texto (txt).',
+            'file.max' => 'El archivo no puede pesar más de 5MB.',
+            'text.required_without' => 'Debe enviar el texto de la lista o un archivo adjunto.',
         ];
     }
 }

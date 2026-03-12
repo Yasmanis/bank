@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Dto\BankList\BankListFullResponseDto;
 use App\Dto\BankList\BankListPartialResponseDto;
+use App\Dto\User\UserIndexResponseDto;
 use App\Exceptions\UnprocessedLinesException;
 use App\Http\Requests\BankListIndexRequest;
 use App\Http\Requests\BankListPreviewRequest;
@@ -11,6 +12,7 @@ use App\Http\Requests\ProcessListRequest;
 use App\Http\Requests\ValidateListRequest;
 use App\Models\BankList;
 use App\Repositories\BankList\BankListRepository;
+use App\Repositories\User\UserRepository;
 use App\Services\BankListService;
 use App\Services\ListParserService;
 use App\Services\SettlementService;
@@ -22,14 +24,18 @@ class BankListController extends Controller
     protected BankListRepository $repository;
     protected SettlementService $settlementService;
 
-    protected BankListService $bankListService; // Inyectamos el orquestador
+    protected BankListService $bankListService;
 
-    public function __construct(ListParserService $listService, BankListRepository $repository, SettlementService $settlementService, BankListService $bankListService)
+    protected UserRepository $userRepository;
+
+
+    public function __construct(ListParserService $listService, BankListRepository $repository, SettlementService $settlementService, BankListService $bankListService, UserRepository $userRepository)
     {
         $this->listService = $listService;
         $this->repository = $repository;
         $this->settlementService = $settlementService;
         $this->bankListService = $bankListService;
+        $this->userRepository = $userRepository;
 
     }
 
@@ -57,7 +63,16 @@ class BankListController extends Controller
                 });
             $paginator->setCollection($groupedItems);
 
-            return $this->successPaginated($paginator);
+            $paginatorUser = $this->userRepository->getSubUsersPaginated(
+                auth()->id(),
+                [],
+                $perPage
+            );
+            $myListsMakers = $paginatorUser->through(fn($modelUser) => UserIndexResponseDto::fromModel($modelUser));
+            $extraData = [
+                'my_list_markers' => $myListsMakers->items()
+            ];
+            return $this->successPaginated($paginator,$extraData);
 
         } catch (\Throwable $th) {
             return $this->error('Error al obtener listas', 422, $th->getMessage());

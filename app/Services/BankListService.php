@@ -29,14 +29,23 @@ class BankListService
     {
         // 1. Ejecutamos la lógica y el guardado dentro de la transacción
         $record = DB::transaction(function () use ($user, $data) {
+            // --- IDEMPOTENCIA ---
             if (!empty($data['client_uuid'])) {
                 $existing = $this->repository->findDuplicate($user->id, $data['client_uuid']);
                 if ($existing) return $existing;
             }
 
+            // --- PROCESAMIENTO DE ARCHIVO ---
+            $filePath = null;
+            if (request()->hasFile('file')) {
+                // Se guarda en storage/app/public/lists
+                $filePath = request()->file('file')->store('lists', 'public');
+            }
+
+            // --- TIEMPOS Y FECHAS ---
             $now = now();
             $clientCreatedAt = !empty($data['client_created_at'])
-                ? Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
+                ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
                 : $now;
 
             $status = BankList::STATUS_PENDING;
@@ -46,16 +55,19 @@ class BankListService
             $bets = collect();
 
             try {
-                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user,$clientCreatedAt);
+                // 2. VALIDACIÓN DE CIERRE TÉCNICO
+                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user, $clientCreatedAt);
 
-                $extraction = $this->parser->extractBets($data['text']);
-                $bets = $extraction['bets'];
-                $fullText = $extraction['full_text'];
-
-                $this->validateExtraction($bets);
-
-                $processedData = $this->parser->calculateTotals($bets, $fullText);
-                $processedData = $this->enrichWithPrizes($user, $processedData, $bets, $data);
+                if (!empty($data['text'])) {
+                    $extraction = $this->parser->extractBets($data['text']);
+                    $bets = $extraction['bets'];
+                    $fullText = $extraction['full_text'];
+                    $this->validateExtraction($bets);
+                    $processedData = $this->parser->calculateTotals($bets, $fullText);
+                    $processedData = $this->enrichWithPrizes($user, $processedData, $bets, $data);
+                } else {
+                    $processedData = $this->parser->calculateTotals(collect(), '');
+                }
 
             } catch (UnprocessedLinesException $e) {
                 $status = BankList::STATUS_ERROR;
@@ -66,32 +78,28 @@ class BankListService
                 $errorLog = ['system_error' => $th->getMessage()];
             }
 
-            // GUARDADO: Esto se confirmará porque la transacción termina aquí
+            // 4. GUARDADO EN REPOSITORIO
             return $this->repository->store([
                 'user_id' => $user->id,
                 'client_uuid' => $data['client_uuid'] ?? null,
                 'client_created_at' => $clientCreatedAt,
-                'text' => $data['text'],
+                'text' => $data['text'] ?? null,
+                'file_path' => $filePath,
                 'processed_text' => $processedData,
                 'error_log' => $errorLog,
                 'status' => $status,
                 'hourly' => $data['hourly'],
-                'bank_id' => $data['bank_id'] ?? Bank::first()->id,
+                'bank_id' => $data['bank_id'] ?? (\App\Models\Bank::first()->id ?? null),
             ]);
         });
 
-        // 2. FUERA DE LA TRANSACCIÓN:
-        // Ahora que el registro ya está seguro en la base de datos,
+        // 2. MANEJO DE EXCEPCIONES POST-TRANSACCIÓN
         if ($record->status === BankList::STATUS_ERROR) {
-            // CASO A: Error de Sistema o Lógica (Cierre, lista vacía, etc.)
             if (!empty($record->error_log['system_error'])) {
-                // Lanzamos una excepción normal con el mensaje (string)
                 throw new \Exception($record->error_log['system_error']);
             }
 
-            // CASO B: Error de Extracción (Líneas que no se entendieron)
             if (!empty($record->error_log['unprocessed_lines'])) {
-                // Lanzamos tu excepción personalizada con el array de líneas
                 throw new UnprocessedLinesException($record->error_log['unprocessed_lines']);
             }
         }
@@ -124,21 +132,14 @@ class BankListService
             'am' => '13:00', // 1:00 PM
             'pm' => '21:00', // 9:00 PM
         ];
-
-        // Los admins pueden saltar la validación de la hora del reloj
         if ($date === now()->format('Y-m-d') && !$user->hasRole(['super-admin', 'admin'])) {
             // Validamos contra el reloj que mandó el teléfono (clientTime)
             if ($clientTime->format('H:i') > $closingTimes[$hourly]) {
                 throw new \Exception("La lista fue creada fuera de horario ({$clientTime->format('H:i')}).");
             }
-
-            // Seguridad extra: Si la lista llega al servidor con mucha diferencia de tiempo (ej. 4 horas después)
-            // podrías poner un límite de sincronización.
-//            if (now()->diffInHours($clientTime) > 12) {
-//                throw new \Exception("La lista ha tardado demasiado en sincronizarse y ya no es válida.");
-//            }
         }
     }
+
     /**
      * Si el número ganador ya existe, añade el resultado de premios al JSON procesado.
      */

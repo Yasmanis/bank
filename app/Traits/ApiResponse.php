@@ -34,10 +34,11 @@ trait ApiResponse
 
 
 
-    protected function successPaginated(LengthAwarePaginator $paginator): JsonResponse
+    protected function successPaginated(LengthAwarePaginator $paginator, $extraData = []): JsonResponse
     {
         return response()->json([
             'data' => $paginator->items(),
+            'extra_data' => $extraData,
             'meta' => [
                 'page'  => $paginator->currentPage(),
                 'limit' => $paginator->perPage(),
