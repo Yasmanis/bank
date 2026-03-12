@@ -63,8 +63,13 @@ class BankListController extends Controller
                 });
             $paginator->setCollection($groupedItems);
 
+            if (!empty($filters['user_id'])){
+                $userId = $filters['user_id'];
+            } else {
+                $userId = auth()->id();
+            }
             $paginatorUser = $this->userRepository->getSubUsersPaginated(
-                auth()->id(),
+                $userId,
                 [],
                 $perPage
             );
