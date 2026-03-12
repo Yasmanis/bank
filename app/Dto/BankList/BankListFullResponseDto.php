@@ -12,7 +12,7 @@ class BankListFullResponseDto
         public string  $creator_name,
         public string  $created_at,
         public string  $status,
-        public string  $text,
+        public ?string  $text,
         public array   $processed_text,
         public int     $created_by,
         public ?int    $updated_by, // Nulable por si no se ha editado
