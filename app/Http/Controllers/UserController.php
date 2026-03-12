@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Dto\User\Permission\ResponseUserPermissionsDto;
 use App\Dto\User\UserIndexResponseDto;
 use App\Http\Requests\UserIndexRequest;
+use App\Http\Requests\UserUpdateRequest;
 use App\Repositories\User\UserRepository;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -24,8 +26,37 @@ class UserController extends Controller
         $paginator = $this->repository->getPaginated($filters, $perPage);
         $paginator->through(fn($model) => UserIndexResponseDto::fromModel($model));
         return $this->successPaginated($paginator);
-
     }
+
+
+    /**
+     * Actualizar un usuario existente.
+     */
+    public function update(UserUpdateRequest $request, $id)
+    {
+        try {
+            $user = $this->repository->getModelById($id);
+            $this->authorize('update', $user);
+            $data = $request->validated();
+            if (!empty($data['password'])) {
+                $data['password'] = Hash::make($data['password']);
+            } else {
+                unset($data['password']);
+            }
+            $this->repository->update($data, $id);
+
+            $updatedUser = $this->repository->getModelById($id);
+            return $this->success(
+                UserIndexResponseDto::fromModel($updatedUser),
+                'Usuario actualizado correctamente'
+            );
+
+        } catch (\Throwable $th) {
+            return $this->error('No se pudo actualizar el usuario', 422, $th->getMessage());
+        }
+    }
+
+
 
     /**
      * @group Gestión de Usuarios

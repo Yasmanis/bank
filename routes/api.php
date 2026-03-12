@@ -109,6 +109,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [\App\Http\Controllers\UserController::class, 'index'])
             ->middleware('permission:user.index')
             ->name('user.index');
+        Route::patch('/{id}', [\App\Http\Controllers\UserController::class, 'update'])
+            ->middleware('permission:user.edit')
+            ->name('user.edit');
         Route::get('my-list-makers', [\App\Http\Controllers\UserController::class, 'myListMakers'])
             ->middleware(['auth:sanctum'])
             ->name('user.list_makers');
