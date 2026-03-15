@@ -13,15 +13,24 @@ class ListParserService
      * 1. Símbolos: - = _ . : / * × >
      * 2. Palabras conectoras: "con", "a", "pesos", "peso"
      * 3. Espacios en blanco
+     * NO debe incluir la letra 'a' suelta para no romper la palabra 'al'.
      */
-    private const SEP = '(?:\s|[-=_.:\/*×>a]|con\b|pesos?\b)+';
+    private const SEP = '(?:\s|[-=_.:\/*×>]|con\b|pesos?\b|a(?![l]))+';
 
-    private const PAREJAS = '/^(?:(?:todas?\s+)?(?:las\s+)?pare\w*|(?:del\s+)?00\s+al\s+99|00-99|^p\b)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
+    /**
+     * RNG: Separador específico para rangos (ej: 00 al 99).
+     * Permite espacios, guiones bajos o la palabra 'al'.
+     */
+    private const RNG = '[\s_]*al[\s_]*';
 
-    private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)'.self::SEP.'al'.self::SEP.'\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
+    private const PAREJAS = '/^(?:(?:todas?\s+)?(?:las\s+)?pare\w*|(?:del\s+)?00'.self::RNG.'99|00-99|^p\b)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
 
-    private const RANGOS = '/^(?:del\s+)?(?<start>\d{1,2})\s+al\s+(?<end>\d{1,2})'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
-    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0'.self::SEP.'al'.self::SEP.'\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?\D+todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
+    private const TERMINALES = '/^(?:(?:los\s+)?ter(?:min(?:al(?:es)?|ar)?)?\s*\d?(?<d1>\d)|(?:del\s+)?\d?(?<d2>\d)'.self::RNG.'\d?\k<d2>|t\s*[-]?\s*(?<d3>\d)|0(?<d4>\d)-9\k<d4>)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
+
+    private const RANGOS = '/^(?:del\s+)?(?<start>\d{1,2})'.self::RNG.'(?<end>\d{1,2})'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?$/iu';
+
+    // Ajustado para que el formato "50 pesos a todos los 70" use el SEP antes de 'todos'
+    private const LINEAS = '/^(?:(?:(?:los|del|l|d|lineas?)\s*(?<dec1>\d)0(?:s)?|(?<dec2>\d)0'.self::RNG.'\k<dec2>9|(?<dec3>\d)0-\k<dec3>9)'.self::SEP.'(?<amt1>\d+)(?:'.self::SEP.'(?<amt2>\d+))?(?:'.self::SEP.'(?<amt3>\d+))?|(?<t_amt1>\d+)(?:'.self::SEP.'(?<t_amt2>\d+))?(?:'.self::SEP.'(?<t_amt3>\d+))?'.self::SEP.'todos\s+(?:los\s+)?(?<dec4>\d)0)$/iu';
 
     private const PARLET = '/^(?:p[- ])?(?<n1>\d{1,2})[x\*×](?<n2>\d{1,2})'.self::SEP.'(?<amt>\d+)$/iu';
 

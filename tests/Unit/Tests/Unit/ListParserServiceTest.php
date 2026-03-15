@@ -487,6 +487,24 @@ class ListParserServiceTest extends TestCase
         $this->assertEquals("[3/3 9:27 p. m.] José Carlos Yasm: 09_al_99_50_10_10", $first->originalLine);
     }
 
+    #[Test]
+    public function it_extracts_compact_and_complex_formats_correctly()
+    {
+        // Caso 1: Pegado total
+        ['bets' => $bets1] = $this->service->extractBets("00al99-250");
+        $this->assertCount(10, $bets1);
+
+        // Caso 2: Pegado lineal
+        ['bets' => $bets2] = $this->service->extractBets("1al10-250");
+        $this->assertCount(10, $bets2);
+
+        // Caso 3: El que te fallaba con metadatos y guion bajo
+        $text = "[3/3 9:27 p. m.] José Carlos Yasm: 09_al_99_50_10_10";
+        ['bets' => $bets3] = $this->service->extractBets($text);
+        $this->assertCount(10, $bets3);
+        $this->assertEquals('triplet', $bets3->first()->type);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
