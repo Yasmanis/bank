@@ -1,6 +1,8 @@
 en el POSTMAN
 La pestanna scripts en preRequest
 
+DEBES TENER esta variable en las variables de la colección
+HMAC_SECRET
 
 
 ///////////SIN ARCHIVOS \\\\\\\\\\\\\\\\\
