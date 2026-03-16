@@ -3,8 +3,8 @@
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login']);
-
-Route::middleware(['auth:sanctum', 'verify.signature'])->group(function () {
+//TODO agregar middleware verify.signature cuando se compile
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
     Route::get('/check-time', fn() => now()->toDateTimeString());
     Route::prefix('list')->group(function () {
