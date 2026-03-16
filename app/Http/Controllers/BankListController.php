@@ -112,11 +112,23 @@ class BankListController extends Controller
             return $this->success(['id' => $model->id], 'Procesado con éxito');
 
         } catch (UnprocessedLinesException $e) {
+            $this->logger()->listProcess(
+                "Lista guardada con errores de formato. Revisar.",
+                null,
+                ['not_processed' => $e->getLines()]
+            );
             return $this->success([
                 'status' => 'error_parsing',
                 'not_processed' => $e->getLines()
             ], 'La lista se guardó pero tiene líneas con errores.', 200);
         } catch (\Throwable $th) {
+            $this->logger()->log(
+                "Fallo en proceso de lista: " . $th->getMessage(),
+                'system_error',
+                null,
+                ['detail' => $th->getMessage()]
+            );
+
             return $this->success([
                 'status' => 'error_system',
                 'detail' => $th->getMessage()

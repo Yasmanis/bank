@@ -54,6 +54,11 @@ class BankListService
             $fullText = '';
             $bets = collect();
 
+            $hourly = $data['hourly'] ?? null;
+            if (!$hourly) {
+                $hourly = ($clientCreatedAt->format('H:i') <= '13:00') ? 'am' : 'pm';
+            }
+
             try {
                 // 2. VALIDACIÓN DE CIERRE TÉCNICO
                 $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user, $clientCreatedAt);
@@ -88,7 +93,7 @@ class BankListService
                 'processed_text' => $processedData,
                 'error_log' => $errorLog,
                 'status' => $status,
-                'hourly' => $data['hourly'],
+                'hourly' => $hourly,
                 'bank_id' => $data['bank_id'] ?? (\App\Models\Bank::first()->id ?? null),
             ]);
         });

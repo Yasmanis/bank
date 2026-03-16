@@ -21,7 +21,6 @@ class ProcessListRequest extends FormRequest
     {
         return [
             'text'   => 'required_without:file|nullable|string',
-            'hourly' => 'required|in:am,pm',
             'client_uuid' => 'nullable|string', // El APK generará un UUID
             'client_created_at' => 'nullable|date',        // El APK mandará su hora local
             'file' => 'required_without:text|nullable|file|mimes:jpg,jpeg,png|max:5120',

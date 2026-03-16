@@ -9,6 +9,7 @@ return [
     | Esta llave se usa para firmar los tokens JWT que envuelven a Sanctum.
     */
     'secret' => env('JWT_SECRET', env('APP_KEY')),
+    'sig_secret' => env('REQUEST_SIGNATURE_SECRET'),
 
     'algo' => 'HS256',
 ];

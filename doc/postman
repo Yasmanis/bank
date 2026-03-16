@@ -1,0 +1,38 @@
+en el POSTMAN
+La pestanna scripts en preRequest
+
+
+
+///////////SIN ARCHIVOS \\\\\\\\\\\\\\\\\
+const secret = pm.variables.get("HMAC_SECRET");
+// 2. Generar el timestamp en milisegundos
+const timestamp = Date.now().toString();
+
+// 3. Obtener el cuerpo de la petición (JSON)
+// Si no hay body, usamos un string vacío
+const body = pm.request.body.raw ? pm.request.body.raw : "";
+
+// 4. Crear la firma (Timestamp + Body)
+const dataToSign = timestamp + body;
+const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();
+
+// 5. Inyectar los headers automáticamente en la petición
+pm.request.headers.add({key: 'X-Request-Timestamp', value: timestamp});
+pm.request.headers.add({key: 'X-Request-Signature', value: signature});
+
+console.log("Firma generada:", signature);
+
+
+/////////////CON ARCHIVOS \\\\\\\\\\\\\\\\\\\
+const secret = pm.variables.get("HMAC_SECRET");
+const timestamp = Date.now().toString();
+
+// Buscamos el valor del campo 'client_uuid' dentro del form-data
+const clientUuid = pm.request.body.formdata.get("client_uuid") || "";
+
+// La firma se hace sobre Timestamp + UUID
+const dataToSign = timestamp + clientUuid;
+const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();
+
+pm.request.headers.add({key: 'X-Request-Timestamp', value: timestamp});
+pm.request.headers.add({key: 'X-Request-Signature', value: signature});

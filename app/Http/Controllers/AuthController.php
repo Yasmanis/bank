@@ -23,19 +23,16 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Credenciales incorrectas'], 401);
         }
-
         // 1. Detectar tipo de dispositivo
         $deviceType = $this->getDeviceType($request);
-
-        // 2. BLACKLIST: Revocar solo el token previo de este tipo de dispositivo
-        // Esto permite 1 Android y 1 PC al mismo tiempo.
         $user->tokens()->where('name', $deviceType)->delete();
 
         // 3. Auditoría de inicio de sesión
-        activity()
-            ->causedBy($user)
-            ->withProperties(['device' => $deviceType, 'ip' => $request->ip()])
-            ->log("Inicio de sesión desde $deviceType");
+        $this->logger()->security("Inicio de sesión exitoso", [
+            'device' => $deviceType,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
 
         return $this->issueToken($user, $deviceType);
     }
@@ -47,15 +44,12 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $deviceType = $this->getDeviceType($request);
-
-        // Blacklist del token actual
         $request->user()->currentAccessToken()->delete();
-
-        activity()
-            ->causedBy($user)
-            ->withProperties(['device' => $deviceType])
-            ->log("Token renovado (Refresh)");
-
+        $this->logger()->security("Token renovado (Refresh)", [
+            'device' => $deviceType,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
         return $this->issueToken($user, $deviceType);
     }
 

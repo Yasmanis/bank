@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Traits\ApiResponse;
+use App\Traits\HasActivityLogger;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 abstract class Controller
 {
-    use ApiResponse, AuthorizesRequests;
+    use ApiResponse, AuthorizesRequests, HasActivityLogger;
 }
