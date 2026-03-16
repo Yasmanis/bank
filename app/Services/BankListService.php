@@ -57,11 +57,12 @@ class BankListService
             $hourly = $data['hourly'] ?? null;
             if (!$hourly) {
                 $hourly = ($clientCreatedAt->format('H:i') <= '13:00') ? 'am' : 'pm';
+                $data['hourly'] = $hourly;
             }
 
             try {
                 // 2. VALIDACIÓN DE CIERRE TÉCNICO
-                $this->checkClosingTime($data['hourly'], $data['date'] ?? $now->format('Y-m-d'), $user, $clientCreatedAt);
+                $this->checkClosingTime($hourly, $data['date'] ?? $now->format('Y-m-d'), $user, $clientCreatedAt);
 
                 if (!empty($data['text'])) {
                     $extraction = $this->parser->extractBets($data['text']);
