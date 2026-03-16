@@ -8,6 +8,7 @@ use App\Dto\User\UserIndexResponseDto;
 use App\Exceptions\UnprocessedLinesException;
 use App\Http\Requests\BankListIndexRequest;
 use App\Http\Requests\BankListPreviewRequest;
+use App\Http\Requests\ManualValidationRequest;
 use App\Http\Requests\ProcessListRequest;
 use App\Http\Requests\ValidateListRequest;
 use App\Models\BankList;
@@ -87,11 +88,11 @@ class BankListController extends Controller
     public function show($id)
     {
         try {
+            // 1. Buscamos el modelo
             $model = $this->repository->getModelById($id);
             $this->authorize('view', $model);
-            $model->load(['user', 'bank']);
+            $model->load(['user', 'bank', 'validator']);
             return $this->success(BankListFullResponseDto::fromModel($model));
-
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return $this->error('No tienes permiso para ver esta lista', 403);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -268,7 +269,28 @@ class BankListController extends Controller
             'searchDate' => $searchDate,
             'searchHourly' => $searchHourly
         ];
+    }
 
+    public function validateManual(ManualValidationRequest $request, $id)
+    {
+        try {
+            $model = $this->repository->getModelById($id);
+            $manualData = $request->validated();
+            $bankId = $manualData['bank_id'];
+            unset($manualData['bank_id']);
+
+            $this->repository->update([
+                'status' => BankList::STATUS_APPROVED,
+                'bank_id' => $bankId,
+                'manual_results' => $manualData,
+                'validated_by' => auth()->id(),
+                'validated_at' => now(),
+            ], $id);
+
+            return $this->success(null, 'Lista validada manualmente y asignada al banco.');
+        } catch (\Throwable $th) {
+            return $this->error('Error al procesar validación manual', 422, $th->getMessage());
+        }
     }
 
 }

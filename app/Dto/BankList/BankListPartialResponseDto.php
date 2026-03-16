@@ -24,6 +24,10 @@ class BankListPartialResponseDto
      */
     public static function fromModel(BankList $model): self
     {
+        $total = $model->manual_results
+            ? (float)($model->manual_results['total'] ?? 0)
+            : (float)($model->processed_text['total'] ?? 0);
+
         return new self(
             id: $model->id,
             hourly: strtoupper($model->hourly),
@@ -31,7 +35,7 @@ class BankListPartialResponseDto
             created_at: $model->created_at->format('d/m/Y H:i'),
             status: $model->status,
             created_at_raw: $model->created_at->format('Y-m-d'), // Simplificado para el groupBy del controller
-            total: (float) ($model->processed_text['total'] ?? 0),
+            total: $total,
             bank_name: $model->bank->name ?? 'Sin asignar',
             error_log: $model->error_log,
             file_url: $model->file_path ? asset('storage/' . $model->file_path) : null,

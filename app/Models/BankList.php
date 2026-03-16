@@ -18,6 +18,8 @@ class BankList extends Model
         'processed_text' => 'array',
         'error_log' => 'array',
         'client_created_at' => 'datetime',
+        'manual_results' => 'array',
+        'validated_at' => 'datetime'
     ];
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -28,5 +30,10 @@ class BankList extends Model
     public function bank()
     {
         return $this->belongsTo(Bank::class);
+    }
+
+    public function validator()
+    {
+        return $this->belongsTo(User::class, 'validated_by');
     }
 }

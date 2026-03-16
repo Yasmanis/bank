@@ -14,17 +14,16 @@ use Illuminate\Support\Facades\DB;
 class SettlementService
 {
     /**
-     * Calcula la liquidación filtrando por BANCO.
+     * Calcula la liquidación filtrando por BANCO considerando validaciones manuales.
      */
     public function calculate(int $userId, int $bankId, string $date, string $hourly): SettlementResultDto
     {
         $user = User::findOrFail($userId);
-        $rates = $user->getEffectiveRates(); // La lógica de prioridad se mantiene
+        $rates = $user->getEffectiveRates();
 
         $win = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
         if (!$win) throw new \Exception("Falta el número ganador para este turno.");
 
-        // FILTRO POR BANCO: Solo obtenemos las listas enviadas a este banco específico
         $lists = BankList::where('user_id', $userId)
             ->where('bank_id', $bankId)
             ->whereDate('created_at', $date)
@@ -33,7 +32,15 @@ class SettlementService
 
         if ($lists->isEmpty()) throw new \Exception("No hay ventas registradas para este usuario en este banco.");
 
-        $totalSales = $lists->sum(fn($l) => $l->processed_text['total'] ?? 0);
+        // --- 1. LÓGICA DE VENTAS TOTALES (Prioridad Manual) ---
+        $totalSales = $lists->sum(function($list) {
+            // Si el admin puso los totales a mano, usamos esos. Si no, lo del bot.
+            return $list->manual_results
+                ? (float)($list->manual_results['total'] ?? 0)
+                : (float)($list->processed_text['total'] ?? 0);
+        });
+
+        // --- 2. LÓGICA DE PREMIOS (Prioridad Manual) ---
         $prizesData = $this->calculateTotalPrizes($lists, $win, $rates);
 
         $commissionAmt = $totalSales * ($rates['commission'] / 100);
@@ -57,7 +64,100 @@ class SettlementService
     }
 
     /**
-     * Procesa y guarda el cierre, vinculándolo al banco.
+     * Calcula los premios recorriendo las listas y detectando si son manuales o automáticas.
+     */
+    private function calculateTotalPrizes(Collection $lists, DailyNumber $win, array $rates): array
+    {
+        $total = 0;
+        $breakdown = [
+            'fixed' => 0, 'hundred' => 0, 'parlet' => 0,
+            'triplet' => 0, 'runners' => 0, 'manual' => 0
+        ];
+
+        foreach ($lists as $list) {
+            // CASO A: El administrador definió el premio manualmente (Imagen o Error de texto)
+            if ($list->manual_results && isset($list->manual_results['prizes'])) {
+                $manualPrize = (float)$list->manual_results['prizes'];
+                $total += $manualPrize;
+                $breakdown['manual'] += $manualPrize;
+            }
+            // CASO B: Procesamiento automático del bot
+            else {
+                $bets = collect($list->processed_text['bets'] ?? []);
+                $autoResult = $this->calculatePrizesFromBets($bets, $win, $rates);
+
+                $total += $autoResult['total'];
+                // Sumamos al breakdown general
+                foreach ($autoResult['breakdown'] as $key => $amount) {
+                    $breakdown[$key] += $amount;
+                }
+            }
+        }
+
+        return ['total' => $total, 'breakdown' => $breakdown];
+    }
+
+    /**
+     * CÁLCULO CORE: Recibe una colección de DetectedBet y devuelve los premios (Igual que antes)
+     */
+    public function calculatePrizesFromBets(Collection $bets, DailyNumber $win, array $rates): array
+    {
+        $total = 0;
+        $breakdown = ['fixed' => 0, 'hundred' => 0, 'parlet' => 0, 'triplet' => 0, 'runners' => 0];
+
+        $winF = $win->fixed;
+        $winH = $win->hundred . $win->fixed;
+        $winR1 = $win->runner1;
+        $winR2 = $win->runner2;
+        $winPool = [$winF, $winR1, $winR2];
+
+        foreach ($bets as $bet) {
+            $bet = is_object($bet) ? (array) $bet : $bet;
+
+            if ($bet['type'] === 'fixed' && $bet['number'] === $winF) {
+                $gain = $bet['amount'] * $rates['fixed'];
+                $total += $gain; $breakdown['fixed'] += $gain;
+            }
+            if ($bet['type'] === 'hundred' && $bet['number'] === $winH) {
+                $gain = $bet['amount'] * $rates['hundred'];
+                $total += $gain; $breakdown['hundred'] += $gain;
+            }
+            if ($bet['type'] === 'triplet' && $bet['number'] === $winF) {
+                $gain = $bet['amount'] * $rates['triplet'];
+                $total += $gain; $breakdown['triplet'] += $gain;
+            }
+            if (in_array($bet['type'], ['fixed', 'triplet'])) {
+                if ($bet['number'] === $winR1 && ($bet['runner1'] ?? 0) > 0) {
+                    $gain = $bet['runner1'] * $rates['runner1'];
+                    $total += $gain; $breakdown['runners'] += $gain;
+                }
+                if ($bet['number'] === $winR2 && ($bet['runner2'] ?? 0) > 0) {
+                    $gain = $bet['runner2'] * $rates['runner2'];
+                    $total += $gain; $breakdown['runners'] += $gain;
+                }
+            }
+            if ($bet['type'] === 'parlet') {
+                $pair = explode('x', $bet['number']);
+                if (in_array($pair[0], $winPool) && in_array($pair[1], $winPool)) {
+                    $gain = $bet['amount'] * $rates['parlet'];
+                    $total += $gain; $breakdown['parlet'] += $gain;
+                }
+            }
+        }
+
+        return ['total' => $total, 'breakdown' => $breakdown];
+    }
+
+    /**
+     * El método de preview sigue funcionando para el texto que se está escribiendo
+     */
+    public function calculateFromBets(Collection $bets, DailyNumber $win, array $rates): array
+    {
+        return $this->calculatePrizesFromBets($bets, $win, $rates);
+    }
+
+    /**
+     * Procesa y guarda el cierre.
      */
     public function processSettlement(int $userId, int $bankId, string $date, string $hourly)
     {
@@ -65,7 +165,6 @@ class SettlementService
             $resultDto = $this->calculate($userId, $bankId, $date, $hourly);
             $dailyNumber = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
 
-            // 1. Guardar Recibo de Liquidación con bank_id
             $settlement = Settlement::create([
                 'user_id' => $userId,
                 'bank_id' => $bankId,
@@ -81,16 +180,15 @@ class SettlementService
                 'created_by' => auth()->id()
             ]);
 
-            // 2. Crear Transacción Automática vinculada al Banco
             $type = $resultDto->final_balance >= 0 ? 'income' : 'outcome';
 
             Transaction::create([
                 'user_id' => $userId,
-                'bank_id' => $bankId, // La deuda es con este banco
+                'bank_id' => $bankId,
                 'settlement_id' => $settlement->id,
                 'amount' => abs($resultDto->final_balance),
                 'type' => $type,
-                'description' => "Liquidación automática - Banco: " . $settlement->bank->name,
+                'description' => "Liquidación automática - Turno: " . strtoupper($hourly),
                 'date' => now(),
                 'status' => 'approved',
                 'created_by' => auth()->id(),
@@ -100,87 +198,5 @@ class SettlementService
 
             return $settlement;
         });
-    }
-
-    public function calculatePrizesFromBets(Collection $bets, DailyNumber $win, array $rates): array
-    {
-        $total = 0;
-        $breakdown = ['fixed' => 0, 'hundred' => 0, 'parlet' => 0, 'triplet' => 0, 'runners' => 0];
-
-        $winF = $win->fixed;
-        $winH = $win->hundred . $win->fixed;
-        $winR1 = $win->runner1;
-        $winR2 = $win->runner2;
-        $winPool = [$winF, $winR1, $winR2];
-
-        foreach ($bets as $bet) {
-            // Convertimos a array si es un objeto DTO para asegurar compatibilidad
-            $bet = is_object($bet) ? (array) $bet : $bet;
-
-            // 1. Fijos
-            if ($bet['type'] === 'fixed' && $bet['number'] === $winF) {
-                $gain = $bet['amount'] * $rates['fixed'];
-                $total += $gain;
-                $breakdown['fixed'] += $gain;
-            }
-
-            // 2. Centenas
-            if ($bet['type'] === 'hundred' && $bet['number'] === $winH) {
-                $gain = $bet['amount'] * $rates['hundred'];
-                $total += $gain;
-                $breakdown['hundred'] += $gain;
-            }
-
-            // 3. Tripletas
-            if ($bet['type'] === 'triplet' && $bet['number'] === $winF) {
-                $gain = $bet['amount'] * $rates['triplet'];
-                $total += $gain;
-                $breakdown['triplet'] += $gain;
-            }
-
-            // 4. Corridos
-            if (in_array($bet['type'], ['fixed', 'triplet'])) {
-                if ($bet['number'] === $winR1 && ($bet['runner1'] ?? 0) > 0) {
-                    $gain = $bet['runner1'] * $rates['runner1'];
-                    $total += $gain;
-                    $breakdown['runners'] += $gain;
-                }
-                if ($bet['number'] === $winR2 && ($bet['runner2'] ?? 0) > 0) {
-                    $gain = $bet['runner2'] * $rates['runner2'];
-                    $total += $gain;
-                    $breakdown['runners'] += $gain;
-                }
-            }
-
-            // 5. Parlets
-            if ($bet['type'] === 'parlet') {
-                $pair = explode('x', $bet['number']);
-                if (in_array($pair[0], $winPool) && in_array($pair[1], $winPool)) {
-                    $gain = $bet['amount'] * $rates['parlet'];
-                    $total += $gain;
-                    $breakdown['parlet'] += $gain;
-                }
-            }
-        }
-
-        return ['total' => $total, 'breakdown' => $breakdown];
-    }
-
-    private function calculateTotalPrizes(Collection $lists, DailyNumber $win, array $rates): array
-    {
-        // Extraemos todas las apuestas de todas las listas en una sola colección plana
-        $allBets = $lists->flatMap(function ($list) {
-            return $list->processed_text['bets'] ?? [];
-        });
-
-        return $this->calculatePrizesFromBets($allBets, $win, $rates);
-    }
-
-    /**
-     * El método de preview ahora llama al core directamente
-     */
-    public function calculateFromBets(Collection $bets, DailyNumber $win, array $rates): array
-    {
-        return $this->calculatePrizesFromBets($bets, $win, $rates);
     }
 }

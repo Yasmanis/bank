@@ -26,6 +26,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/validate/{id}', [\App\Http\Controllers\BankListController::class, 'validate'])
             ->middleware('permission:list.validate')
             ->name('list.validate');
+
+        Route::post('/validate-manual/{id}', [\App\Http\Controllers\BankListController::class, 'validateManual'])
+            ->middleware('permission:list.validate')
+            ->name('list.validate-manual');
     });
 
     Route::prefix('daily-number')->group(function () {
