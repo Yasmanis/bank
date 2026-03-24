@@ -25,24 +25,21 @@ class BankListService
     /**
      * Orquestación completa: De texto de WhatsApp a Registro en Base de Datos
      */
-    public function createFromChat($user, array $data)
+    public function createFromChat($user, array $data,$file = null)
     {
         // 1. Ejecutamos la lógica y el guardado dentro de la transacción
-        $record = DB::transaction(function () use ($user, $data) {
-            // --- IDEMPOTENCIA ---
+        $record = DB::transaction(function () use ($user, $data, $file) {
+            // 1. Idempotencia (UUID)
             if (!empty($data['client_uuid'])) {
                 $existing = $this->repository->findDuplicate($user->id, $data['client_uuid']);
                 if ($existing) return $existing;
             }
 
-            // --- PROCESAMIENTO DE ARCHIVO ---
             $filePath = null;
-            if (request()->hasFile('file')) {
-                // Se guarda en storage/app/public/lists
-                $filePath = request()->file('file')->store('lists', 'public');
+            if ($file) {
+                $filePath = $file->store('lists', 'public');
             }
 
-            // --- TIEMPOS Y FECHAS ---
             $now = now();
             $clientCreatedAt = !empty($data['client_created_at'])
                 ? \Illuminate\Support\Carbon::parse($data['client_created_at'])->timezone(config('app.timezone'))
@@ -84,7 +81,6 @@ class BankListService
                 $errorLog = ['system_error' => $th->getMessage()];
             }
 
-            // 4. GUARDADO EN REPOSITORIO
             return $this->repository->store([
                 'user_id' => $user->id,
                 'client_uuid' => $data['client_uuid'] ?? null,
@@ -171,7 +167,6 @@ class BankListService
 
         return $processedData;
     }
-
 
 
     public function getUnifiedTurnReport(int $userId, string $date, string $hourly)

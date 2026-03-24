@@ -164,11 +164,26 @@ class BankListController extends Controller
     public function process(ProcessListRequest $request)
     {
         try {
-            $model = $this->bankListService->createFromChat(
-                auth()->user(),
-                $request->validated()
-            );
-            return $this->success(['id' => $model->id], 'Procesado con éxito');
+            $user = auth()->user();
+            $files = $request->file('file');
+            $results = [];
+
+            if (is_array($files)) {
+                foreach ($files as $index => $file) {
+                    $data = $request->validated();
+                    if ($index > 0) $data['text'] = null;
+                    if ($index > 0) $data['client_uuid'] = null;
+
+                    $model = $this->bankListService->createFromChat($user, $data, $file);
+                    $results[] = ['id' => $model->id, 'type' => 'file'];
+                }
+            }
+            else {
+                $model = $this->bankListService->createFromChat($user, $request->validated(), $files);
+                $results[] = ['id' => $model->id, 'type' => $files ? 'file' : 'text'];
+            }
+
+            return $this->success(['processed' => $results], 'Procesado con éxito');
 
         } catch (UnprocessedLinesException $e) {
             $this->logger()->listProcess(
