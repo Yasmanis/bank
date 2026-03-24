@@ -17,6 +17,7 @@ use App\Repositories\User\UserRepository;
 use App\Services\BankListService;
 use App\Services\ListParserService;
 use App\Services\SettlementService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class BankListController extends Controller
@@ -82,6 +83,63 @@ class BankListController extends Controller
 
         } catch (\Throwable $th) {
             return $this->error('Error al obtener listas', 422, $th->getMessage());
+        }
+    }
+
+    /**
+     * Ver consolidado unificado de un turno.
+     * Accesible para cualquier usuario (ve lo suyo y lo de sus hijos).
+     * Por defecto toma la fecha de hoy y el horario sugerido según la hora actual.
+     */
+    public function unified(Request $request)
+    {
+        // 1. Validación: ahora date y hourly son opcionales
+        $request->validate([
+            'user_id' => 'nullable|exists:users,id',
+            'date'    => 'nullable|date',
+            'hourly'  => 'nullable|in:am,pm'
+        ]);
+
+        try {
+            $authUser = auth()->user();
+            $targetUserId = $request->user_id ?? $authUser->id;
+
+            // 2. Seguridad Jerárquica
+            if (!$authUser->can('list.view_all')) {
+                $managedIds = $authUser->getManagedUserIds();
+                if (!in_array((int)$targetUserId, $managedIds)) {
+                    return $this->error('No tienes permiso para ver a este usuario', 403);
+                }
+            }
+
+            // 3. Resolución de Fecha y Horario Inteligente
+            // Reutilizamos tu método privado para obtener la fecha y el turno sugerido
+            $params = $request->only(['date', 'hourly']);
+            // Pasamos un objeto vacío o simulamos el Request para que el helper funcione
+            $searchParams = $this->getSearchDateAndHourly($request, $params);
+
+            $date = $searchParams['searchDate'];
+            $hourly = $searchParams['searchHourly'];
+
+            // 4. Llamada al servicio con los datos resueltos
+            $unifiedModel = $this->bankListService->getUnifiedTurnReport(
+                (int)$targetUserId,
+                $date,
+                $hourly
+            );
+
+            if (!$unifiedModel) {
+                return $this->error("No hay actividad para unificar el día {$date} ({$hourly})", 404);
+            }
+
+            // Cargamos la relación del usuario virtualmente para el DTO
+            $unifiedModel->setRelation('user', User::find($targetUserId));
+
+            // Retornamos el DTO de siempre (FullResponse)
+            return $this->success(BankListFullResponseDto::fromModel($unifiedModel));
+
+        } catch (\Throwable $th) {
+            return $this->error('Error al generar el consolidado', 422, $th->getMessage());
         }
     }
 
@@ -252,7 +310,7 @@ class BankListController extends Controller
         }
     }
 
-    private function getSearchDateAndHourly(BankListPreviewRequest $request, mixed $params)
+    private function getSearchDateAndHourly(Request $request, mixed $params)
     {
         $now = now(); // Carbon instance
         $currentTime = $now->format('H:i');

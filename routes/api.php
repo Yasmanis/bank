@@ -30,6 +30,10 @@ Route::middleware(['auth:sanctum','verify.signature'])->group(function () {
         Route::post('/validate-manual/{id}', [\App\Http\Controllers\BankListController::class, 'validateManual'])
             ->middleware('permission:list.validate')
             ->name('list.validate-manual');
+
+        Route::get('/unified', [\App\Http\Controllers\BankListController::class, 'unified'])
+            ->middleware('permission:list.preview')
+            ->name('list.unified');
     });
 
     Route::prefix('daily-number')->group(function () {

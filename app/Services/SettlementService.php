@@ -102,6 +102,35 @@ class SettlementService
      */
     public function calculatePrizesFromBets(Collection $bets, DailyNumber $win, array $rates): array
     {
+        //TODO:
+        //-Calculo de Tripletas
+        // WINNER
+        //-              "fixed": "75",
+        //            "hundred": "6",
+        //            "runner1": "95",
+        //            "runner2": "21",
+
+        //Rates
+        //                  "fixed" => 75,
+        //                "hundred" => 300,
+        //                "parlet" => 400,
+        //                "runner1" => 25,
+        //                "runner2" => 25,
+        //                "triplet" => 70,
+        //                "commission" => 25.00,
+
+
+        //- 75-20-20-20 = 75 * 20 = 1500
+        //- 95-20-20-20 = 70 * 20 = 1400  Se paga a 70 porque esta linea es una tripleta
+        //- 21-20-20-20 = 70 * 20 = 1400  Se paga a 70 porque esta linea es una tripleta
+
+        //Calculo de corrido
+        //- 75-20-10 = (20 * 75) + (10 * 25) = 1750  Si el que salio fue el fijo se paga los primero 20 a 75(fixed) los otros 10 pesos a 25(runner1)
+        //- 95-20-10 = (10 * 25) = 250 solo se paga el corrido pero a precio de runner1
+        //- 21-20-10 = (10 * 25) = 250 solo se paga el corrido pero a precio de runner1
+
+
+
         $total = 0;
         $breakdown = ['fixed' => 0, 'hundred' => 0, 'parlet' => 0, 'triplet' => 0, 'runners' => 0];
 

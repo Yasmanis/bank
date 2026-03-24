@@ -171,4 +171,55 @@ class BankListService
 
         return $processedData;
     }
+
+
+
+    public function getUnifiedTurnReport(int $userId, string $date, string $hourly)
+    {
+        $lists = $this->repository->getListsForUnification($userId, $date, $hourly);
+
+        if ($lists->isEmpty()) return null;
+
+        // 1. Unimos todo el texto original de los diferentes mensajes
+        $combinedRawText = $lists->pluck('text')->implode("\n");
+
+        // 2. Pasamos el bloque completo por el motor de extracción
+        // Esto recalcula totales y agrupa todos los errores en un solo lugar
+        $extraction = $this->parser->extractBets($combinedRawText);
+        $bets = $extraction['bets'];
+        $fullCleanText = $extraction['full_text'];
+
+        // 3. Calculamos totales de venta del bloque unificado
+        $totals = $this->parser->calculateTotals($bets, $fullCleanText);
+
+        // 4. Intentamos calcular premios si el número ya salió
+        $win = DailyNumber::whereDate('date', $date)->where('hourly', $hourly)->first();
+        if ($win) {
+            $user = User::find($userId);
+            $rates = $user->getEffectiveRates();
+            $prizesData = $this->settlementService->calculateFromBets($bets, $win, $rates);
+
+            $totals['prizes_preview'] = [
+                'found' => true,
+                'total_prizes' => $prizesData['total'],
+                'breakdown' => $prizesData['breakdown'],
+                'winning_number' => "{$win->hundred}-{$win->fixed}"
+            ];
+        }
+
+        // 5. Creamos un objeto "virtual" compatible con el DTO
+        // Usamos 'new BankList' sin guardar para que el DTO pueda leerlo como un modelo
+        return new BankList([
+            'id' => 0, // ID 0 indica que es un consolidado
+            'user_id' => $userId,
+            'hourly' => $hourly,
+            'text' => $combinedRawText,
+            'processed_text' => $totals,
+            'status' => 'unified',
+            'created_at' => \Carbon\Carbon::parse($date),
+            'error_log' => [
+                'unprocessed_lines' => $bets->where('type', 'error')->pluck('originalLine')->toArray()
+            ]
+        ]);
+    }
 }

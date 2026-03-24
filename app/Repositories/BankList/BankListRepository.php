@@ -55,4 +55,15 @@ class BankListRepository extends BaseRepository implements RepositoryInterface
             ->first();
     }
 
+
+    public function getListsForUnification(int $userId, string $date, string $hourly)
+    {
+        return BankList::where('user_id', $userId)
+            ->whereDate('created_at', $date)
+            ->where('hourly', $hourly)
+            ->whereNull('file_path')
+            ->with(['user', 'bank'])
+            ->get();
+    }
+
 }
