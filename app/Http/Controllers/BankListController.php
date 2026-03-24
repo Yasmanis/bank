@@ -19,6 +19,7 @@ use App\Services\ListParserService;
 use App\Services\SettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use App\Models\User;
 
 class BankListController extends Controller
 {

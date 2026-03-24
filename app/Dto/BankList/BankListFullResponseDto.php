@@ -34,6 +34,8 @@ class BankListFullResponseDto
     {
         $data = $model->processed_text;
         if ($model->manual_results) {
+            $date = $model->created_at->format('d/m/Y');
+            $hourly = $model->hourly->value ?? $model->hourly;
             $manual = $model->manual_results;
             $data['total'] = (float)($manual['total'] ?? 0);
             $data['fixed'] = (int)($manual['fixed'] ?? 0);
@@ -50,7 +52,9 @@ class BankListFullResponseDto
                     'breakdown' => [
                         'manual' => (float)$manual['prizes']
                     ],
-                    'winning_number' => 'Validación Manual'
+                    'winning_number' => 'Validación Manual',
+                    'draw_date' => $date,
+                    'draw_hourly' => $hourly
                 ];
             }
         }
