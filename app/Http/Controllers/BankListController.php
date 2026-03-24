@@ -183,7 +183,7 @@ class BankListController extends Controller
                 $results[] = ['id' => $model->id, 'type' => $files ? 'file' : 'text'];
             }
 
-            return $this->success(['processed' => $results], 'Procesado con éxito');
+            return $this->success(['id' => $results[0]['id'] ?? 0], 'Procesado con éxito');
 
         } catch (UnprocessedLinesException $e) {
             $this->logger()->listProcess(
