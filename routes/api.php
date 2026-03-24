@@ -8,9 +8,13 @@ Route::middleware(['auth:sanctum','verify.signature'])->group(function () {
     Route::post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
     Route::get('/check-time', fn() => now()->toDateTimeString());
     Route::prefix('list')->group(function () {
-        Route::get('/',[\App\Http\Controllers\BankListController::class, 'index']);
-        Route::get('/{id}',[\App\Http\Controllers\BankListController::class, 'show']);
-        Route::delete('/{id}',[\App\Http\Controllers\BankListController::class, 'destroy']);
+        // 1. Rutas fijas (Estáticas) - DEBEN IR PRIMERO
+        Route::get('/', [\App\Http\Controllers\BankListController::class, 'index']);
+
+        Route::get('/unified', [\App\Http\Controllers\BankListController::class, 'unified'])
+            ->middleware('permission:list.preview')
+            ->name('list.unified');
+
         Route::post('/process', [\App\Http\Controllers\BankListController::class, 'process'])
             ->middleware('permission:list.process')
             ->name('list.process');
@@ -19,9 +23,16 @@ Route::middleware(['auth:sanctum','verify.signature'])->group(function () {
             ->middleware('permission:list.preview')
             ->name('list.preview');
 
+        // 2. Rutas con parámetros dinámicos - DEBEN IR AL FINAL
         Route::get('/preview/{id}', [\App\Http\Controllers\BankListController::class, 'previewById'])
             ->middleware('permission:list.preview')
-            ->name('list.preview');
+            ->name('list.preview-id');
+
+        Route::get('/{id}', [\App\Http\Controllers\BankListController::class, 'show'])
+            ->name('list.show');
+
+        Route::delete('/{id}', [\App\Http\Controllers\BankListController::class, 'destroy'])
+            ->name('list.destroy');
 
         Route::post('/validate/{id}', [\App\Http\Controllers\BankListController::class, 'validate'])
             ->middleware('permission:list.validate')
@@ -30,10 +41,6 @@ Route::middleware(['auth:sanctum','verify.signature'])->group(function () {
         Route::post('/validate-manual/{id}', [\App\Http\Controllers\BankListController::class, 'validateManual'])
             ->middleware('permission:list.validate')
             ->name('list.validate-manual');
-
-        Route::get('/unified', [\App\Http\Controllers\BankListController::class, 'unified'])
-            ->middleware('permission:list.preview')
-            ->name('list.unified');
     });
 
     Route::prefix('daily-number')->group(function () {
