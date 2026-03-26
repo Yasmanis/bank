@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Dto\User\Permission\ResponseUserPermissionsDto;
 use App\Dto\User\UserIndexResponseDto;
 use App\Http\Requests\UserIndexRequest;
+use App\Http\Requests\UserStoreRequest;
 use App\Http\Requests\UserUpdateRequest;
 use App\Repositories\User\UserRepository;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -26,6 +28,37 @@ class UserController extends Controller
         $paginator = $this->repository->getPaginated($filters, $perPage);
         $paginator->through(fn($model) => UserIndexResponseDto::fromModel($model));
         return $this->successPaginated($paginator);
+    }
+
+
+    /**
+     * Crear un nuevo usuario.
+     * Solo accesible por Super Admin.
+     */
+    public function store(UserStoreRequest $request)
+    {
+        try {
+            $this->authorize('create', \App\Models\User::class);
+            $data = $request->validated();
+
+            $user = DB::transaction(function () use ($data) {
+                $data['password'] = Hash::make($data['password']);
+                $newUser = $this->repository->store($data);
+                $newUser->assignRole($data['role']);
+                return $newUser;
+            });
+
+            return $this->success(
+                UserIndexResponseDto::fromModel($user),
+                'Usuario creado exitosamente',
+                201
+            );
+
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->error('No tienes permisos para crear usuarios', 403);
+        } catch (\Throwable $th) {
+            return $this->error('Error al crear usuario', 422, $th->getMessage());
+        }
     }
 
 

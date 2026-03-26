@@ -10,4 +10,9 @@ class UserPolicy
     {
         return $user->hasRole(['admin', 'super-admin']);
     }
+
+    public function create(User $user): bool
+    {
+        return $user->hasRole('super-admin');
+    }
 }

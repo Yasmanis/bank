@@ -18,7 +18,10 @@ class RoleSeeder extends Seeder
             ],
             'user' => [
                 'user.index',
-                'user.list_makers'
+                'user.list_makers',
+                'user.create',
+                'user.edit',
+                'user.delete',
             ],
             'list' => [
                 'list.process',

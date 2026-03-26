@@ -124,6 +124,9 @@ Route::middleware(['auth:sanctum','verify.signature'])->group(function () {
         Route::get('/', [\App\Http\Controllers\UserController::class, 'index'])
             ->middleware('permission:user.index')
             ->name('user.index');
+        Route::post('/', [\App\Http\Controllers\UserController::class, 'store'])
+            ->middleware('permission:user.create')
+            ->name('user.create');
         Route::patch('/{id}', [\App\Http\Controllers\UserController::class, 'update'])
             ->middleware('permission:user.edit')
             ->name('user.edit');
